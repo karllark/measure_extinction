@@ -6,10 +6,12 @@ from collections import OrderedDict
 
 import numpy as np
 
-# from astropy.io import fits
 from astropy.table import Table
 from astropy import constants as const
 import astropy.units as u
+
+from dust_extinction.parameter_averages import CCM89
+from dust_extinction.shapes import _curve_F99_method
 
 __all__ = ["StarData", "BandData", "SpecData"]
 
@@ -861,6 +863,7 @@ class StarData:
         self.model_params = {}
         self.data = {}
         self.corfac = {}
+        self.deredden_params = {}
         self.photonly = photonly
         self.use_corfac = use_corfac
         self.LXD_man = False
@@ -907,6 +910,15 @@ class StarData:
                     self.corfac["IRS_maxwave"] = float(cpair[1])
                 elif cpair[0] == "corfac_irs":
                     self.corfac["IRS"] = float(cpair[1])
+                elif cpair[0].find("dered") != -1:
+                    if cpair[0].find("RV") != -1:
+                        self.deredden_params["RV"] = float(cpair[1])
+                    elif cpair[0].find("AV") != -1:
+                        self.deredden_params["AV"] = float(cpair[1])
+                    elif cpair[0].find("FM") != -1:
+                        self.deredden_params["FM90"] = [
+                            float(cfm) for cfm in cpair[1].split("  ")
+                        ]
 
         # read the spectra
         if not self.photonly:
@@ -999,6 +1011,55 @@ class StarData:
                 if colpos == 0:
                     colpos = len(line)
                 return (line[0 : eqpos - 1].strip(), line[eqpos + 1 : colpos].strip())
+
+    def deredden(self):
+        """
+        Remove the effects of extinction from all the data.
+        Prime use to deredden a standard star for a small amount of extinction.
+        Information on the extinction curve to use is given in the DAT_file.
+        Uses FM90 parameters for the UV portion of the extinction curve
+        and CCM89 extinction values for the optical/NIR based on R(V).
+        A(V) values used for dust column.
+        """
+        if self.deredden_params:
+            # deredden the BANDs and IUE/STIS/FUSE data
+            #  will need to add other options if/when dereddening expanded
+
+            # info for dereddening model (F99 method)
+            optnirext = CCM89()
+            gvals = self.data["BAND"].waves < 3.0 * u.micron
+            optnir_axav_x = 1.0 / self.data["BAND"].waves[gvals]
+            optnir_axav_y = optnirext(optnir_axav_x)
+            fm = self.deredden_params["FM90"]
+
+            xrange = np.flip(1.0 * u.micron / optnirext.x_range)
+            for curtype in self.data.keys():
+                cwaves = self.data[curtype].waves
+                gvals = (cwaves > xrange[0]) & (cwaves < xrange[1])
+                if np.any(gvals):
+                    alav = _curve_F99_method(
+                        self.data[curtype].waves[gvals],
+                        self.deredden_params["RV"],
+                        fm[0],
+                        fm[1],
+                        fm[2],
+                        fm[3],
+                        fm[4],
+                        fm[5],
+                        optnir_axav_x,
+                        optnir_axav_y,
+                        optnirext.x_range,
+                        "F99_method",
+                    )
+                    print(self.data[curtype].waves[gvals])
+                    print(alav)
+                else:
+                    warnings.warn(f"{curtype} cannot be dereddened", UserWarning)
+        else:
+            warnings.warn(
+                "cannont deredden as no dereddening parameters set", UserWarning
+            )
+        exit()
 
     def get_flat_data_arrays(self, req_datasources):
         """

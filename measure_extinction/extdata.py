@@ -913,6 +913,7 @@ class ExtData:
         color=None,
         alpha=None,
         alax=False,
+        wavenum=False,
         exclude=[],
         normval=1.0,
         yoffset=0.0,
@@ -943,6 +944,9 @@ class ExtData:
         alax : boolean [default=False]
             convert from E(lambda-X) using A(X), if necessary
             plot A(lambda)/A(X)
+
+        wavenum : boolean [default=False]
+            plot x axis as 1/wavelength as is standard for UV extinction curves
 
         exclude : list of strings [default=[]]
             List of data type(s) to exclude from the plot (e.g., IRS)
@@ -1018,13 +1022,8 @@ class ExtData:
             y = y / normval + yoffset
             yu = yu / normval
 
-            # if curtype == legend_key:
-            #     if legend_label is None:
-            #         legval = self.red_file
-            #     else:
-            #         legval = legend_label
-            # else:
-            #     legval = None
+            if wavenum:
+                x = 1.0 / x
 
             if curtype == "BAND":
                 # plot band data as points with errorbars
@@ -1046,6 +1045,9 @@ class ExtData:
                 ann_val = np.nanmedian(y[ann_indxs])
                 ann_val += (annotate_yoffset,)
                 ann_xval = 0.5 * np.sum(annotate_wave_range.value)
+
+                if wavenum:
+                    ann_xval = 1.0 / ann_xval
                 pltax.text(
                     ann_xval,
                     ann_val,
