@@ -1314,6 +1314,6 @@ class StarData:
                     ann_val,
                     annotate_text,
                     color=annotate_color,
-                    horizontalalignment="left",
+                    horizontalalignment="center",
                     rotation=annotate_rotation,
                 )
