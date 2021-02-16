@@ -304,7 +304,6 @@ def plot_spectrum(
     if norm_range is not None:
         norm_range = norm_range * u.micron
     starobs.plot(ax, norm_wave_range=norm_range, mlam4=mlam4, exclude=exclude)
-
     # plot HI-lines if requested
     if HI_lines:
         plot_HI(path, ax)
