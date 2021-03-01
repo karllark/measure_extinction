@@ -127,12 +127,15 @@ class BandData:
             The zeromag_flux is the flux in erg/cm2/s/A for a star of (Vega) mag=0. It gives the conversion factor from Vega magnitudes to erg/cm2/s/A.
         """
         _johnson_band_names = ["U", "B", "V", "R", "I", "J", "H", "K", "L", "M"]
+        # JHK for 2MASS (Cohen et al. 2003 as given in the 2MASS explanatory suppliment)
+        # note that K=Ks here (potential confusion, not major, but maybe should be dealt
+        #    with at some point)
         _johnson_band_waves = np.array(
-            [0.366, 0.438, 0.545, 0.641, 0.798, 1.22, 1.63, 2.19, 3.45, 4.75]
+            [0.366, 0.438, 0.545, 0.641, 0.798, 1.235, 1.662, 2.159, 3.45, 4.75]
         )
         _johnson_band_zeromag_fluxes = (
             np.array(
-                [417.5, 632.0, 363.1, 217.7, 112.6, 31.47, 11.38, 3.961, 0.699, 0.204]
+                [417.5, 632.0, 363.1, 217.7, 112.6, 31.29, 11.33, 4.283, 0.699, 0.204]
             )
             * 1e-11
         )
@@ -801,6 +804,14 @@ class SpecData:
             if len(indxs) > 0:
                 self.npts[indxs] = 0
 
+        if "IRS_maxsnr" in corfac.keys():
+            # probably a more clever way to do this, but this at least works
+            gindxs, = np.where(self.npts > 0)
+            above_maxsnr = (self.fluxes[gindxs] / self.uncs[gindxs]) > corfac["IRS_maxsnr"]
+            new_uncs = self.uncs[gindxs]
+            new_uncs[above_maxsnr] = self.fluxes[gindxs][above_maxsnr] / corfac["IRS_maxsnr"]
+            self.uncs[gindxs] = new_uncs
+
         # add units
         self.fluxes = self.fluxes.value * (u.Jy)
         self.uncs = self.uncs.value * (u.Jy)
@@ -905,6 +916,8 @@ class StarData:
                     self.corfac["IRS_slope"] = float(cpair[1])
                 elif cpair[0] == "corfac_irs_maxwave":
                     self.corfac["IRS_maxwave"] = float(cpair[1])
+                elif cpair[0] == "corfac_irs_maxsnr":
+                    self.corfac["IRS_maxsnr"] = float(cpair[1])
                 elif cpair[0] == "corfac_irs":
                     self.corfac["IRS"] = float(cpair[1])
 
