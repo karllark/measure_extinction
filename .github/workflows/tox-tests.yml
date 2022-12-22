@@ -63,7 +63,7 @@ jobs:
         python -m pip install tox
     - name: Test with tox
       run: |
-        tox -e py38-devdeps
+        tox -e py39-devdeps
 
   # LTS version test
   lts_test:
@@ -99,7 +99,7 @@ jobs:
         python -m pip install tox
     - name: Test with tox
       run: |
-        tox -e py38-cov
+        tox -e py39-cov
     - name: Upload coverage to codecov
       uses: codecov/codecov-action@v1
       with:
