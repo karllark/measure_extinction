@@ -501,7 +501,7 @@ class ExtData:
         else:
             self.columns["EBV"] = (self.exts["BAND"][bindx], self.uncs["BAND"][bindx])
 
-    def calc_AV(self, akav=0.112):
+    def calc_AV(self, akav=0.105):
         """
         Calculate A(V) from the observed extinction curve:
             - fit a powerlaw to the SpeX extinction curve, if available
@@ -509,9 +509,10 @@ class ExtData:
 
         Parameters
         ----------
-        akav : float  [default = 0.112]
+        akav : float
            Value of A(K)/A(V)
-           default is from Rieke & Lebofsky (1985)
+           default is from Decleir et al. (2022)
+           for Rieke & Lebofsky (1985) use akav=0.112
            van de Hulst No. 15 curve has A(K)/A(V) = 0.0885
 
         Returns
@@ -538,23 +539,33 @@ class ExtData:
                 avunc = np.absolute(av * (self.uncs["BAND"][kindx] / ekv))
                 self.columns["AV"] = (av, avunc)
 
-    def calc_AV_JHK(self):
+    def calc_AV_JHK(
+        self,
+        ref_waves=np.array([1.25, 1.6, 2.2]) * u.micron,
+        ref_alav=[0.269, 0.163, 0.105],
+    ):
         """
         Calculate A(V) from the observed extinction curve:
             - extrapolate from J, H, & K photometry
-            - assumes functional form from Rieke, Rieke, & Paul (1989)
+
+        Parameters
+        ----------
+        ref_waves : floats
+            wavelengths for reference values (default = JHK)
+        ref_alav : floats
+            A(lambda)/A(V) values for reference
+            default is for JHK from Decleir et al. (2022)
+            for Rieke, Rieke, & Paul (1989) use ref_alav=[0.2815534, 0.17475728, 0.11197411],
 
         Returns
         -------
         Updates self.columns["AV"]
         """
         # J, H, K
-        rrp89_waves = np.array([1.25, 1.6, 2.2]) * u.micron
-        rrp89_alav = [0.2815534, 0.17475728, 0.11197411]
 
         avs = []
         avs_unc = []
-        for cwave, calav in zip(rrp89_waves, rrp89_alav):
+        for cwave, calav in zip(ref_waves, ref_alav):
             dwaves = np.absolute(self.waves["BAND"] - cwave)
             kindx = dwaves.argmin()
             if dwaves[kindx] < 0.1 * u.micron:
