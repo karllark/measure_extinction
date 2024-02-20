@@ -84,7 +84,7 @@ if __name__ == "__main__":
         )
         stable = [stable]
     else:
-        sfilename = f"{args.inpath}{args.starname}*_x1d.fits"
+        sfilename = f"{args.inpath}{args.starname}*.fits"
         print(sfilename)
         sfiles = glob.glob(sfilename)
         print(sfiles)
@@ -117,13 +117,14 @@ if __name__ == "__main__":
     fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(10, 5.5))
 
     gvals = stable[0]["NPTS"] > 0
-    ax.plot(
-        stable[0]["WAVELENGTH"][gvals],
-        stable[0]["FLUX"][gvals],
-        "k-",
-        alpha=0.5,
-        label="orig",
-    )
+    for ctable in stable:
+        ax.plot(
+            ctable["WAVELENGTH"][gvals],
+            ctable["FLUX"][gvals],
+            "k-",
+            alpha=0.5,
+            label="orig",
+        )
     gvals = rb_stis["NPTS"] > 0
     ax.plot(
         rb_stis["WAVELENGTH"][gvals],
