@@ -81,7 +81,7 @@ class BandData:
         self.band_waves = OrderedDict()
         self.band_fluxes = OrderedDict()
 
-    def read_bands(self, lines):
+    def read_bands(self, lines, only_bands=None):
         """
         Read the photometric band data from a DAT file
         and upate class variables.
@@ -92,6 +92,8 @@ class BandData:
         ----------
         lines : list of string
             lines from a DAT formatted file
+        only_bands : list
+            Only read in the bands given
 
         Returns
         -------
@@ -110,15 +112,23 @@ class BandData:
                 elif line.find(";") != -1 and line.find("mJy") != -1:
                     colpos = min(line.find(";"), line.find("mJy"))
                 band_name = line[0:eqpos].strip()
-                self.bands[band_name] = (
-                    float(line[eqpos + 1 : pmpos]),
-                    float(line[pmpos + 3 : colpos]),
-                )
-                # units
-                if line.find("mJy") >= 0:
-                    self.band_units[band_name] = "mJy"
+
+                save_band = False
+                if (only_bands is None):
+                    save_band = True
                 else:
-                    self.band_units[band_name] = "mag"
+                    if band_name in only_bands:
+                        save_band = True
+                if save_band:
+                    self.bands[band_name] = (
+                        float(line[eqpos + 1 : pmpos]),
+                        float(line[pmpos + 3 : colpos]),
+                    )
+                    # units
+                    if line.find("mJy") >= 0:
+                        self.band_units[band_name] = "mJy"
+                    else:
+                        self.band_units[band_name] = "mag"
 
         self.n_bands = len(self.bands)
 
@@ -934,7 +944,8 @@ class StarData:
     """
 
     def __init__(
-        self, datfile, path="", photonly=False, use_corfac=True, deredden=False
+        self, datfile, path="", photonly=False, use_corfac=True, deredden=False,
+        only_bands=None,
     ):
         """
         Parameters
@@ -955,6 +966,9 @@ class StarData:
         deredden : boolean [default=False]
            Deredden the data based on dereddening parameters given in the DAT file.
            Generally used to deredden standards.
+
+        only_bands : list
+            Only read in the bands given
         """
         self.file = datfile
         self.path = path
@@ -969,9 +983,9 @@ class StarData:
         self.dereddened = deredden
 
         if self.file is not None:
-            self.read(deredden=deredden)
+            self.read(deredden=deredden, only_bands=only_bands)
 
-    def read(self, deredden=False):
+    def read(self, deredden=False, only_bands=None):
         """
         Populate the object from a DAT file + spectral files
 
@@ -980,6 +994,8 @@ class StarData:
         deredden : boolean [default=False]
            Deredden the data based on dereddening parameters given in the DAT file.
            Generally used to deredden standards.
+        only_bands : list
+            Only read in the bands given           
         """
 
         # open and read all the lines in the file
@@ -988,7 +1004,7 @@ class StarData:
         f.close()
         # get the photometric band data
         self.data["BAND"] = BandData("BAND")
-        self.data["BAND"].read_bands(self.datfile_lines)
+        self.data["BAND"].read_bands(self.datfile_lines, only_bands=only_bands)
 
         # covert the photoemtric band data to fluxes in all possible bands
         self.data["BAND"].get_band_fluxes()
