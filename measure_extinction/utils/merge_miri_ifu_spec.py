@@ -12,7 +12,7 @@ import astropy.units as u
 from measure_extinction.merge_obsspec import merge_miri_ifu_obsspec
 
 
-fluxunit = u.erg / (u.s * u.cm * u.cm * u.angstrom)
+fluxunit = u.erg / (u.cm * u.cm * u.s * u.angstrom)
 
 
 if __name__ == "__main__":
@@ -61,7 +61,6 @@ if __name__ == "__main__":
     mrs_file = f"{outname}_miri_ifu.fits"
     rb_mrs.write(f"{args.outpath}/{mrs_file}", overwrite=True)
 
-
     # plot the original and merged Spectra
     fontsize = 14
     font = {"size": fontsize}
@@ -75,19 +74,28 @@ if __name__ == "__main__":
 
     for ctable in stable:
         gvals = ctable["NPTS"] > 0
+        cfluxes = (
+            ctable["FLUX"]
+            .to(fluxunit, equivalencies=u.spectral_density(ctable["WAVELENGTH"]))
+            .value
+        )
         ax.plot(
             ctable["WAVELENGTH"][gvals],
-            ctable["FLUX"][gvals],
+            cfluxes[gvals],
             "k-",
             alpha=0.5,
             label="orig",
         )
     gvals = rb_mrs["NPTS"] > 0
-    cfluxes = rb_mrs["FLUX"][gvals].data * fluxunit
-    # cfluxes = (rb_mrs["FLUX"][gvals].data * fluxunit).to(u.Jy, equivalencies=u.spectral_density(rb_mrs["WAVELENGTH"].data)).value
+    cfluxes = (
+        rb_mrs["FLUX"]
+        .to(fluxunit, equivalencies=u.spectral_density(ctable["WAVELENGTH"]))
+        .value
+    )
+ 
     ax.plot(
         rb_mrs["WAVELENGTH"][gvals].to(u.micron),
-        cfluxes,
+        rb_mrs["FLUX"][gvals],
         "b-",
         alpha=0.5,
         label="merged",

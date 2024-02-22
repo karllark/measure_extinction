@@ -844,9 +844,6 @@ class SpecData:
         """
         self.read_spectra(line, path)
 
-        # add units
-        self.fluxes = self.fluxes.value * u.Jy
-        self.uncs = self.uncs.value * u.Jy
         self.fluxes = self.fluxes.to(
             fluxunit, equivalencies=u.spectral_density(self.waves)
         )
