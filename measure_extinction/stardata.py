@@ -825,6 +825,30 @@ class SpecData:
         self.fluxes = self.fluxes.value * (u.Jy)
         self.uncs = self.uncs.value * (u.Jy)
 
+    def read_nircam_ss(self, line, path="./"):
+        """
+        Read in Webb/NIRCam slitless spectra
+
+        Parameters
+        ----------
+        line : string
+            formatted line from DAT file
+            example: 'NIRCam_SS = hd029647_irs.fits'
+
+        path : string, optional
+            location of the FITS files path
+
+        Returns
+        -------
+        Updates self.(file, wave_range, waves, flux, uncs, npts, n_waves)
+        """
+        self.read_spectra(line, path)
+
+        self.fluxes = self.fluxes.to(
+            fluxunit, equivalencies=u.spectral_density(self.waves)
+        )
+        self.uncs = self.uncs.to(fluxunit, equivalencies=u.spectral_density(self.waves))
+
     def read_miri_ifu(self, line, path="./"):
         """
         Read in Webb/MRS IFU spectra
@@ -833,7 +857,7 @@ class SpecData:
         ----------
         line : string
             formatted line from DAT file
-            example: 'IRS = hd029647_irs.fits'
+            example: 'MIRI_IFU = hd029647_irs.fits'
 
         path : string, optional
             location of the FITS files path
@@ -1103,6 +1127,16 @@ class StarData:
                             path=self.path,
                             use_corfac=self.use_corfac,
                             corfac=self.corfac,
+                        )
+                    else:
+                        warnings.warn(f"{fname} does not exist", UserWarning)
+                elif line.find("NIRCam_SS") == 0:
+                    fname = _getspecfilename(line, self.path)
+                    if os.path.isfile(fname):
+                        self.data["NIRCam_SS"] = SpecData("NIRCam_SS")
+                        self.data["NIRCam_SS"].read_miri_ifu(
+                            line,
+                            path=self.path,
                         )
                     else:
                         warnings.warn(f"{fname} does not exist", UserWarning)

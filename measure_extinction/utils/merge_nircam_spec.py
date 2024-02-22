@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 from astropy.table import QTable
 import astropy.units as u
 
-from measure_extinction.merge_obsspec import merge_miri_ifu_obsspec
+from measure_extinction.merge_obsspec import merge_nircam_ss_obsspec
 
 
 fluxunit = u.erg / (u.cm * u.cm * u.s * u.angstrom)
@@ -49,12 +49,12 @@ if __name__ == "__main__":
         cdata["NPTS"][cdata["FLUX"] == 0.0] = 0.0
         stable.append(cdata)
 
-    rb_mrs = merge_miri_ifu_obsspec(stable)
+    rb_mrs = merge_nircam_ss_obsspec(stable)
     if args.outname:
         outname = args.outname
     else:
         outname = args.starname.lower()
-    mrs_file = f"{outname}_miri_ifu.fits"
+    mrs_file = f"{outname}_nircam_ss.fits"
     rb_mrs.write(f"{args.outpath}/{mrs_file}", overwrite=True)
 
     # plot the original and merged Spectra
