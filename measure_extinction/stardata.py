@@ -114,7 +114,7 @@ class BandData:
                 band_name = line[0:eqpos].strip()
 
                 save_band = False
-                if (only_bands is None):
+                if only_bands is None:
                     save_band = True
                 else:
                     if band_name in only_bands:
@@ -965,7 +965,12 @@ class StarData:
     """
 
     def __init__(
-        self, datfile, path="", photonly=False, use_corfac=True, deredden=False,
+        self,
+        datfile,
+        path="",
+        photonly=False,
+        use_corfac=True,
+        deredden=False,
         only_bands=None,
     ):
         """
@@ -1016,7 +1021,7 @@ class StarData:
            Deredden the data based on dereddening parameters given in the DAT file.
            Generally used to deredden standards.
         only_bands : list
-            Only read in the bands given           
+            Only read in the bands given
         """
 
         # open and read all the lines in the file

@@ -88,7 +88,7 @@ if __name__ == "__main__":
         .to(fluxunit, equivalencies=u.spectral_density(ctable["WAVELENGTH"]))
         .value
     )
- 
+
     ax.plot(
         rb_mrs["WAVELENGTH"][gvals].to(u.micron),
         rb_mrs["FLUX"][gvals],
