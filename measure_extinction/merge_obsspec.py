@@ -285,7 +285,7 @@ def merge_gen_obsspec(obstables, wave_range, output_resolution=100):
     Parameters
     ----------
     obstables : list of astropy Table objects
-        list of tables containing the observed IRS spectra
+        list of tables containing the observed spectra
         usually the result of reading tables
 
     wave_range : 2 element float
@@ -367,7 +367,7 @@ def merge_irs_obsspec(obstables, output_resolution=150):
     """
     wave_range = [5.0, 40.0] * u.micron
     otable = merge_gen_obsspec(
-        obstables, wave_range, output_resolution=output_resolution
+        obstables, wave_range, output_resolution=output_resolution,
     )
     return otable
 
@@ -421,6 +421,7 @@ def merge_miri_ifu_obsspec(obstables, output_resolution=3000):
     """
     wave_range = [4.8, 29.0] * u.micron
     otable = merge_gen_obsspec(
-        obstables, wave_range, output_resolution=output_resolution
+        obstables, wave_range, output_resolution=output_resolution,
     )
+
     return otable

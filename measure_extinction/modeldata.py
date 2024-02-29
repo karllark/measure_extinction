@@ -209,7 +209,7 @@ class ModelData(object):
 
         return sed
 
-    def dust_extinguished_sed_FM90_G23(self, params, sed, velocity=0.0):
+    def dust_extinguished_sed(self, params, sed, velocity=0.0):
         """
         Dust extinguished sed given the extinction parameters
 
@@ -254,7 +254,7 @@ class ModelData(object):
                 params[6],
                 optnir_axav_x.value,
                 optnir_axav_y,
-                [0.2, 11.0],
+                [0.033, 11.0],
                 "FM90_G23_measure_extinction",
             )
             ext_sed[cspec] = sed[cspec] * (10 ** (-0.4 * axav * params[0]))
@@ -270,7 +270,7 @@ class ModelData(object):
 
         return ext_sed
 
-    def dust_extinguished_sed(self, params, sed, velocity=0.0):
+    def dust_extinguished_sed_FM04(self, params, sed, velocity=0.0):
         """
         Dust extinguished sed given the extinction parameters
 

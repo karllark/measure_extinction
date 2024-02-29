@@ -27,6 +27,7 @@ _poss_datasources = [
     "SpeX_SXD",
     "SpeX_LXD",
     "IRS",
+    "NIRCam_SS",
     "MIRI_IFU",
 ]
 
@@ -263,7 +264,7 @@ class ExtData:
     """
     Extinction for a single line-of-sight
 
-    Atributes:
+    Attributes:
 
     type : string
         extinction curve type (e.g., elx or alax)

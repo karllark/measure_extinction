@@ -1,12 +1,8 @@
-#!/usr/bin/env python
-
-from __future__ import absolute_import, division, print_function, unicode_literals
-
-# import pkg_resources
 import argparse
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 
+import numpy as np
 import astropy.units as u
 
 from measure_extinction.stardata import StarData
@@ -51,12 +47,20 @@ if __name__ == "__main__":
     # setup the plot
     fig, ax = plt.subplots(figsize=(13, 10))
 
+    # setup continuous colors
+    color_indices = np.array(range(len(starnames))) / len(starnames)
+
+    cmap = mpl.cm.plasma
+    color = iter(cmap(np.linspace(0.1, 0.9, len(starnames))))
+
     # plot the bands and all spectra for this star
     # plot all the spectra on the same plot
     for k, cstarname in enumerate(starnames):
+        c = next(color)
         fstarname, file_path = get_full_starfile(cstarname)
         starobs = StarData(fstarname, path=file_path)
-        starobs.plot(ax, norm_wave_range=[0.2, 0.3] * u.micron, yoffset=2**k)
+        starobs.plot(ax, norm_wave_range=[0.3, 0.8] * u.micron, yoffset=2**k, pcolor=c,
+                     legend_key="BAND", legend_label=cstarname)
 
     # finish configuring the plot
     ax.set_yscale("log")
@@ -65,6 +69,8 @@ if __name__ == "__main__":
     ax.set_ylabel(r"$F(\lambda)$ [$ergs\ cm^{-2}\ s\ \AA$]", fontsize=1.3 * fontsize)
     ax.tick_params("both", length=10, width=2, which="major")
     ax.tick_params("both", length=5, width=1, which="minor")
+
+    ax.legend(ncol=2)
 
     # use the whitespace better
     fig.tight_layout()

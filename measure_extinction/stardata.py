@@ -81,7 +81,7 @@ class BandData:
         self.band_waves = OrderedDict()
         self.band_fluxes = OrderedDict()
 
-    def read_bands(self, lines):
+    def read_bands(self, lines, only_bands=None):
         """
         Read the photometric band data from a DAT file
         and upate class variables.
@@ -92,6 +92,8 @@ class BandData:
         ----------
         lines : list of string
             lines from a DAT formatted file
+        only_bands : list
+            Only read in the bands given
 
         Returns
         -------
@@ -110,15 +112,23 @@ class BandData:
                 elif line.find(";") != -1 and line.find("mJy") != -1:
                     colpos = min(line.find(";"), line.find("mJy"))
                 band_name = line[0:eqpos].strip()
-                self.bands[band_name] = (
-                    float(line[eqpos + 1 : pmpos]),
-                    float(line[pmpos + 3 : colpos]),
-                )
-                # units
-                if line.find("mJy") >= 0:
-                    self.band_units[band_name] = "mJy"
+
+                save_band = False
+                if only_bands is None:
+                    save_band = True
                 else:
-                    self.band_units[band_name] = "mag"
+                    if band_name in only_bands:
+                        save_band = True
+                if save_band:
+                    self.bands[band_name] = (
+                        float(line[eqpos + 1 : pmpos]),
+                        float(line[pmpos + 3 : colpos]),
+                    )
+                    # units
+                    if line.find("mJy") >= 0:
+                        self.band_units[band_name] = "mJy"
+                    else:
+                        self.band_units[band_name] = "mag"
 
         self.n_bands = len(self.bands)
 
@@ -815,15 +825,15 @@ class SpecData:
         self.fluxes = self.fluxes.value * (u.Jy)
         self.uncs = self.uncs.value * (u.Jy)
 
-    def read_miri_ifu(self, line, path="./"):
+    def read_nircam_ss(self, line, path="./"):
         """
-        Read in Webb/MRS IFU spectra
+        Read in Webb/NIRCam slitless spectra
 
         Parameters
         ----------
         line : string
             formatted line from DAT file
-            example: 'IRS = hd029647_irs.fits'
+            example: 'NIRCam_SS = hd029647_irs.fits'
 
         path : string, optional
             location of the FITS files path
@@ -834,9 +844,30 @@ class SpecData:
         """
         self.read_spectra(line, path)
 
-        # add units
-        self.fluxes = self.fluxes.value * u.Jy
-        self.uncs = self.uncs.value * u.Jy
+        self.fluxes = self.fluxes.to(
+            fluxunit, equivalencies=u.spectral_density(self.waves)
+        )
+        self.uncs = self.uncs.to(fluxunit, equivalencies=u.spectral_density(self.waves))
+
+    def read_miri_ifu(self, line, path="./"):
+        """
+        Read in Webb/MRS IFU spectra
+
+        Parameters
+        ----------
+        line : string
+            formatted line from DAT file
+            example: 'MIRI_IFU = hd029647_irs.fits'
+
+        path : string, optional
+            location of the FITS files path
+
+        Returns
+        -------
+        Updates self.(file, wave_range, waves, flux, uncs, npts, n_waves)
+        """
+        self.read_spectra(line, path)
+
         self.fluxes = self.fluxes.to(
             fluxunit, equivalencies=u.spectral_density(self.waves)
         )
@@ -934,7 +965,13 @@ class StarData:
     """
 
     def __init__(
-        self, datfile, path="", photonly=False, use_corfac=True, deredden=False
+        self,
+        datfile,
+        path="",
+        photonly=False,
+        use_corfac=True,
+        deredden=False,
+        only_bands=None,
     ):
         """
         Parameters
@@ -955,6 +992,9 @@ class StarData:
         deredden : boolean [default=False]
            Deredden the data based on dereddening parameters given in the DAT file.
            Generally used to deredden standards.
+
+        only_bands : list
+            Only read in the bands given
         """
         self.file = datfile
         self.path = path
@@ -969,9 +1009,9 @@ class StarData:
         self.dereddened = deredden
 
         if self.file is not None:
-            self.read(deredden=deredden)
+            self.read(deredden=deredden, only_bands=only_bands)
 
-    def read(self, deredden=False):
+    def read(self, deredden=False, only_bands=None):
         """
         Populate the object from a DAT file + spectral files
 
@@ -980,6 +1020,8 @@ class StarData:
         deredden : boolean [default=False]
            Deredden the data based on dereddening parameters given in the DAT file.
            Generally used to deredden standards.
+        only_bands : list
+            Only read in the bands given
         """
 
         # open and read all the lines in the file
@@ -988,7 +1030,7 @@ class StarData:
         f.close()
         # get the photometric band data
         self.data["BAND"] = BandData("BAND")
-        self.data["BAND"].read_bands(self.datfile_lines)
+        self.data["BAND"].read_bands(self.datfile_lines, only_bands=only_bands)
 
         # covert the photoemtric band data to fluxes in all possible bands
         self.data["BAND"].get_band_fluxes()
@@ -1090,6 +1132,16 @@ class StarData:
                             path=self.path,
                             use_corfac=self.use_corfac,
                             corfac=self.corfac,
+                        )
+                    else:
+                        warnings.warn(f"{fname} does not exist", UserWarning)
+                elif line.find("NIRCam_SS") == 0:
+                    fname = _getspecfilename(line, self.path)
+                    if os.path.isfile(fname):
+                        self.data["NIRCam_SS"] = SpecData("NIRCam_SS")
+                        self.data["NIRCam_SS"].read_miri_ifu(
+                            line,
+                            path=self.path,
                         )
                     else:
                         warnings.warn(f"{fname} does not exist", UserWarning)
