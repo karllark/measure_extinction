@@ -71,12 +71,15 @@ def _rebin(waves, exts, rebin_fac):
     return new_waves, new_exts
 
 
-def _flux_unc_as_mags(fluxes, uncs):
+def _flux_unc_as_mags(fluxes_in, uncs_in):
     """
     Provide the flux uncertainties in magnitudes accounting for the
     case where (fluxes-uncs) is negative
     """
-    uncs_mag = np.empty(len(fluxes))
+    fluxes = np.atleast_1d(fluxes_in)
+    uncs = np.atleast_1d(uncs_in)
+
+    uncs_mag = np.empty(len(np.atleast_1d(fluxes)))
 
     # fluxes-uncs case
     (indxs,) = np.where(fluxes - uncs <= 0)
@@ -157,6 +160,33 @@ def _get_column_plus_unc(column):
             return column
     else:
         return (column, 0.0)
+
+
+def _get_rel_band(red, comp, rel_band):
+    """
+    Get the band to reference the extinction curve.
+    Supports using a photometric band or a spectroscopic flux
+    """
+    if isinstance(rel_band, str):    # reference photometric band
+        red_rel_band = red.data["BAND"].get_band_mag(rel_band)
+        comp_rel_band = comp.data["BAND"].get_band_mag(rel_band)
+    else:   # reference spectroscopic wavelength
+        # find the source that has the requested wavelength
+        red_rel_band = 0.0
+        for ckey in red.data.keys():
+            if ckey != "BAND":
+                if np.min(red.data[ckey].waves) <= rel_band <= np.max(red.data[ckey].waves):
+                    rflux = np.interp(rel_band, red.data[ckey].waves, red.data[ckey].fluxes).value
+                    runc = np.interp(rel_band, red.data[ckey].waves, red.data[ckey].uncs).value
+                    red_rel_band = (-2.5 * np.log10(rflux), _flux_unc_as_mags(rflux, runc)[0])
+
+                    cflux = np.interp(rel_band, comp.data[ckey].waves, comp.data[ckey].fluxes).value
+                    cunc = np.interp(rel_band, comp.data[ckey].waves, comp.data[ckey].uncs).value
+                    comp_rel_band = (-2.5 * np.log10(cflux), _flux_unc_as_mags(cflux, cunc)[0])
+        if red_rel_band == 0.0:
+            raise ValueError("requested spectroscopic rel_band wavelength not present in any spectra")
+
+    return (red_rel_band, comp_rel_band)
 
 
 def AverageExtData(extdatas, min_number=3, mask=[]):
@@ -355,9 +385,8 @@ class ExtData:
         -------
         updates self.(waves, exts, uncs, npts, names)['BAND']
         """
-        # reference band
-        red_rel_band = red.data["BAND"].get_band_mag(rel_band)
-        comp_rel_band = comp.data["BAND"].get_band_mag(rel_band)
+        red_rel_band, comp_rel_band = _get_rel_band(red, comp, rel_band)
+
         # possible bands for the band extinction curve
         poss_bands = red.data["BAND"].get_poss_bands()
 
@@ -414,14 +443,12 @@ class ExtData:
         updates self.(waves, exts, uncs, npts)[src]
         """
         if (src in red.data.keys()) & (src in comp.data.keys()):
-            # check that the wavelenth grids are identical
+            # check that the wavelength grids are identical
             delt_wave = red.data[src].waves - comp.data[src].waves
             if np.sum(np.absolute(delt_wave)) > 0.01 * u.micron:
                 warnings.warn("wavelength grids not equal for %s" % src, UserWarning)
             else:
-                # reference band
-                red_rel_band = red.data["BAND"].get_band_mag(rel_band)
-                comp_rel_band = comp.data["BAND"].get_band_mag(rel_band)
+                red_rel_band, comp_rel_band = _get_rel_band(red, comp, rel_band)
 
                 # setup the needed variables
                 self.waves[src] = red.data[src].waves
@@ -545,6 +572,7 @@ class ExtData:
         self,
         ref_waves=np.array([1.25, 1.6, 2.2]) * u.micron,
         ref_alav=[0.269, 0.163, 0.105],
+        ref_wave=None,
     ):
         """
         Calculate A(V) from the observed extinction curve:
@@ -673,7 +701,7 @@ class ExtData:
         -------
         Updates self.(exts, uncs)
         """
-        if self.type_rel_band != "V":
+        if (self.type_rel_band != "V") and (self.type_rel_band != 0.55 * u.micron):
             warnings.warn(
                 "attempt to normalize a non-E(lambda-V) curve with A(V)", UserWarning
             )
@@ -912,7 +940,11 @@ class ExtData:
             "Reddened Star File",
             "Comparison Star File",
         ]
-        hval = [self.type, self.type_rel_band, self.red_file, self.comp_file]
+        if isinstance(self.type_rel_band, str):
+            trelband = self.type_rel_band
+        else:
+            trelband = f"{self.type_rel_band}"
+        hval = [self.type, trelband, self.red_file, self.comp_file]
 
         ext_col_info = {
             "ebv": ("EBV", "E(B-V)"),
@@ -1017,7 +1049,6 @@ class ExtData:
         #         'FMx0','FMx0U','FMgam','FMgamU',
         #         'LOGHI','LOGHI_U','LOGHIMW','LHIMW_U',
         #         'NHIAV','NHIAV_U','NHIEBV','NHIEBV_U'
-
         for k in range(len(hname)):
             pheader.set(hname[k], hval[k], hcomment[k])
 
@@ -1289,7 +1320,12 @@ class ExtData:
         """
         if not ytype:
             ytype = self.type
-        relband = self.type_rel_band.replace("_", "")
+
+        if isinstance(self.type_rel_band, str):
+            relband = self.type_rel_band.replace("_", "")
+        else:
+            relband = f"{self.type_rel_band}"
+
         if ytype == "elx":
             return rf"$E(\lambda - {relband})$"
         elif ytype == "alax":
