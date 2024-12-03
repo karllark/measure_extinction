@@ -74,7 +74,7 @@ class FitInfo(object):
         ----------
         params : floats
             parameters of the model
-            params = [logT, logg, logZ, Av, Rv, C2, C3, C4, x0, gamma, HI_gal, HI_mw]
+            params = [logT, logg, logZ, Av, Rv, C2, C3, C4, x0, gamma, HI_gal, HI_mw, logf]
 
         obsdata : StarData object
             observed data for a reddened star
@@ -83,6 +83,8 @@ class FitInfo(object):
             all the information about the model spectra
         """
         # intrinsic sed
+
+        #print("Params: ",params)
         modsed = modeldata.stellar_sed(params[0:3], velocity=self.velocities[0])
 
         # dust_extinguished sed
@@ -100,21 +102,28 @@ class FitInfo(object):
         for cspec in hi_ext_modsed.keys():
             try:
                 gvals = (self.weights[cspec] > 0) & (np.isfinite(hi_ext_modsed[cspec]))
+
             except ValueError:
                 raise ValueError(
                     "Oops! The model data and reddened star data did not match.\n Hint: Make sure that the BAND name in the .dat files match."
                 )
+
+            errors = 1./self.weights[cspec][gvals]
+            newerrors  = errors**2 + (hi_ext_modsed[cspec][gvals] * (norm_data / norm_model))**2 * np.exp(2 * params[-1])
+
             chiarr = np.square(
                 (
                     (
                         obsdata.data[cspec].fluxes[gvals].value
                         - (hi_ext_modsed[cspec][gvals] * (norm_data / norm_model))
                     )
-                    * self.weights[cspec][gvals]
-                )
-            )
+                    
+                ) 
+            ) / newerrors + np.log(newerrors)
+
             lnl += -0.5 * np.sum(chiarr)
 
+        #print("LogLikelihood: ",lnl)
         return lnl
 
     def lnprior(self, params):
@@ -335,8 +344,9 @@ if __name__ == "__main__":
         "gamma",
         "HI_gal",
         "HI_mw",
+        "logf",
     ]
-    params = [4.3, 2.09, 0.2, 0.75, 3.7, 2.5, 0.65, 0.26, 4.66, 0.86, 22.0, 19.0]
+    params = [4.3, 2.09, 0.2, 0.75, 3.7, 2.5, 0.65, 0.26, 4.66, 0.86, 22.0, 19.0,-1.0]
     plimits = [
         [modinfo.temps_min, modinfo.temps_max],
         [modinfo.gravs_min, modinfo.gravs_max],
@@ -350,6 +360,7 @@ if __name__ == "__main__":
         [0.6, 1.5],
         [17.0, 24.0],
         [17.0, 22.0],
+        [-9.0,0.0],
     ]
     ppriors = {}
     if args.spteff:
@@ -366,7 +377,7 @@ if __name__ == "__main__":
     #  bad regions are defined as those were we know the models do not work
     #  or the data is bad
     ex_regions = [
-        [8.23 - 0.1, 8.23 + 0.1],  # geocoronal line
+        [8.13, 8.33],  # geocoronal line
         [8.7, 10.0],  # bad data from STIS
         [3.55, 3.6],
         [3.80, 3.90],
