@@ -1,6 +1,7 @@
 from matplotlib import pyplot as plt
-import pkg_resources
 from synphot import SpectralElement
+
+from measure_extinction.utils.helpers import get_datapath
 
 
 def plot_bandpasses(bands):
@@ -9,7 +10,7 @@ def plot_bandpasses(bands):
 
     # plot all response curves
     for band in bands:
-        bp = SpectralElement.from_file("%s%s.dat" % (band_path, band))
+        bp = SpectralElement.from_file(f"{band_path}/{band}.dat")
         if "MIPS" in band:
             wavelengths = bp.waveset * 10**4
         else:
@@ -24,9 +25,7 @@ def plot_bandpasses(bands):
 
 if __name__ == "__main__":
     # path for band response curves
-    band_path = pkg_resources.resource_filename(
-        "measure_extinction", "data/Band_RespCurves/"
-    )
+    band_path = f"{get_datapath()}/Band_RespCurves/"
 
     # define the different bandpasses
     bands = [

@@ -1,22 +1,22 @@
-import pkg_resources
 import os
 
+from measure_extinction.utils.helpers import get_datapath
 from measure_extinction.utils.calc_ext import calc_extinction, calc_ave_ext
 
 
 def test_calc_extinction():
-    # get the location of the data files
-    data_path = pkg_resources.resource_filename("measure_extinction", "data/")
-
     redstarname = "HD229238"
     compstarname = "HD204172"
+
+    # get the location of the data files
+    data_path = get_datapath()
 
     # calculate the extinction curve
     calc_extinction(redstarname, compstarname, data_path, savepath=data_path)
 
     # check if an extinction curve has been calculated and saved to a fits file
     assert os.path.isfile(
-        data_path + "%s_%s_ext.fits" % (redstarname.lower(), compstarname.lower())
+        f"{data_path}/{redstarname.lower()}_{compstarname.lower()}_ext.fits"
     ), (
         "No FITS file has been created with the extinction curve of reddened star "
         + redstarname
@@ -27,7 +27,7 @@ def test_calc_extinction():
 
 def test_calc_ave_ext():
     # get the location of the data files
-    data_path = pkg_resources.resource_filename("measure_extinction", "data/")
+    data_path = get_datapath()
 
     # list the same starpair 3 times so that an average curve will be calculated (it needs at least 3 sightlines)
     starpair_list = ["HD229238_HD204172", "HD229238_HD204172", "HD229238_HD204172"]
@@ -38,5 +38,5 @@ def test_calc_ave_ext():
 
     # check if the average extinction curve has been calculated and saved to a fits file
     assert os.path.isfile(
-        data_path + "average_ext.fits"
+        f"{data_path}/average_ext.fits"
     ), "No FITS file has been created with the average extinction curve"

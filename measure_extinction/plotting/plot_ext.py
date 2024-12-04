@@ -1,8 +1,3 @@
-#!/usr/bin/env python
-
-from __future__ import absolute_import, division, print_function, unicode_literals
-
-import pkg_resources
 import argparse
 import warnings
 import matplotlib.pyplot as plt
@@ -11,6 +6,7 @@ import astropy.units as u
 import pandas as pd
 import os
 
+from measure_extinction.utils.helpers import get_datapath
 from measure_extinction.extdata import ExtData
 from dust_extinction.parameter_averages import CCM89
 
@@ -92,8 +88,9 @@ def plot_average(
     Plots the average extinction curve
     """
     # read in the average extinction curve (if it exists)
-    if os.path.isfile(path + filename):
-        average = ExtData(path + filename)
+    fname = f"{path}/{filename}"
+    if os.path.isfile(fname):
+        average = ExtData(fname)
     else:
         warnings.warn(
             "An average extinction curve with the name "
@@ -331,8 +328,8 @@ def plot_HI(ax, wavenum=False):
     Indicates HI-lines on the plot
     """
     # read in HI-lines
-    path = pkg_resources.resource_filename("measure_extinction", "data/")
-    table = pd.read_table(path + "HI_lines.list", sep=r"\s+", comment="#")
+    data_path = get_datapath()
+    table = pd.read_table(f"{data_path}/HI_lines.list", sep=r"\s+", comment="#")
     # group lines by series
     series_groups = table.groupby("n'")
     colors = plt.get_cmap("tab10")
@@ -805,7 +802,7 @@ def main():
     parser.add_argument(
         "--path",
         help="path to the data files",
-        default=pkg_resources.resource_filename("measure_extinction", "data/"),
+        default=get_datapath(),
     )
     parser.add_argument("--alax", help="plot A(lambda)/A(X)", action="store_true")
     parser.add_argument(

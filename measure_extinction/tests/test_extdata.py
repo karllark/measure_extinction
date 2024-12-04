@@ -1,15 +1,14 @@
-import pkg_resources
-
 import astropy.units as u
 import numpy as np
 
+from measure_extinction.utils.helpers import get_datapath
 from measure_extinction.stardata import StarData
 from measure_extinction.extdata import ExtData, _hierarch_keywords, _get_column_val
 
 
 def test_calc_ext():
     # get the location of the data files
-    data_path = pkg_resources.resource_filename("measure_extinction", "data/")
+    data_path = get_datapath()
 
     # read in the observed data of the stars
     redstar = StarData("hd229238.dat", path=data_path)
@@ -34,7 +33,7 @@ def test_calc_ext():
 
 def test_get_fitdata():
 
-    data_path = pkg_resources.resource_filename("measure_extinction", "data/")
+    data_path = get_datapath()
 
     # read in the observed data of the stars
     redstar = StarData("hd229238.dat", path=data_path)
@@ -62,7 +61,7 @@ def test_get_fitdata():
 
 def test_calc_AV_RV():
     # get the location of the data files
-    data_path = pkg_resources.resource_filename("measure_extinction", "data/")
+    data_path = get_datapath()
 
     # read in the observed data of the stars
     redstar = StarData("hd229238.dat", path=data_path)
@@ -100,17 +99,17 @@ def test_get_column_val():
 
 def test_fit_band_ext():  # only for alax=False (for now)
     # get the location of the data files
-    data_path = pkg_resources.resource_filename("measure_extinction", "data/")
+    data_path = get_datapath()
 
     # read in the extinction curve data
-    extdata = ExtData(data_path + "hd229238_hd204172_ext.fits")
+    extdata = ExtData(f"{data_path}/hd229238_hd204172_ext.fits")
 
     # fit the extinction curve with a powerlaw based on the band data
     extdata.fit_band_ext()
 
     # test the fitting results
     waves, exts, res = np.loadtxt(
-        data_path + "fit_band_ext_result_hd229238_hd204172.txt", unpack=True
+        f"{data_path}/fit_band_ext_result_hd229238_hd204172.txt", unpack=True
     )
     np.testing.assert_almost_equal(extdata.model["waves"], waves)
     np.testing.assert_almost_equal(extdata.model["exts"], exts)
@@ -124,17 +123,17 @@ def test_fit_band_ext():  # only for alax=False (for now)
 
 def test_fit_spex_ext():  # only for alax=False (for now)
     # get the location of the data files
-    data_path = pkg_resources.resource_filename("measure_extinction", "data/")
+    data_path = get_datapath()
 
     # read in the extinction curve data
-    extdata = ExtData(data_path + "hd229238_hd204172_ext.fits")
+    extdata = ExtData(f"{data_path}/hd229238_hd204172_ext.fits")
 
     # fit the extinction curve with a powerlaw based on the SpeX data
     extdata.fit_spex_ext()
 
     # test the fitting results
     waves, exts, res = np.loadtxt(
-        data_path + "fit_spex_ext_result_hd229238_hd204172.txt", unpack=True
+        f"{data_path}/fit_spex_ext_result_hd229238_hd204172.txt", unpack=True
     )
     np.testing.assert_almost_equal(extdata.model["waves"], waves)
     np.testing.assert_almost_equal(extdata.model["exts"], exts)

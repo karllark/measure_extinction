@@ -1,3 +1,5 @@
+.. _model standards:
+
 ===========================
 Stellar Models as Standards
 ===========================

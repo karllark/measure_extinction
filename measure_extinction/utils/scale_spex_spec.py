@@ -7,7 +7,8 @@ from synphot.models import Empirical1D
 import argparse
 import numpy as np
 import astropy.units as u
-import pkg_resources
+
+from measure_extinction.utils.helpers import get_datapath
 
 
 # function to get photometry from a spectrum
@@ -37,9 +38,7 @@ def get_phot(spec, bands):
     )
 
     # path for band response curves
-    band_path = pkg_resources.resource_filename(
-        "measure_extinction", "data/Band_RespCurves/"
-    )
+    band_path = f"{get_datapath()}/Band_RespCurves/"
 
     # dictionary linking the bands to their response curves
     bandnames = {
@@ -190,7 +189,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--path",
         help="path where data files are stored",
-        default=pkg_resources.resource_filename("measure_extinction", "data/"),
+        default=get_datapath(),
     )
     args = parser.parse_args()
 

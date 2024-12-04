@@ -1,8 +1,8 @@
-import pkg_resources
 import os
 import warnings
 import pytest
 
+from measure_extinction.utils.helpers import get_datapath
 from measure_extinction.plotting.plot_ext import (
     plot_multi_extinction,
     plot_extinction,
@@ -13,7 +13,7 @@ from measure_extinction.plotting.plot_ext import (
 @pytest.mark.skip(reason="failing due to changes in matplotlib")
 def test_plot_extinction():
     # get the location of the data files
-    data_path = pkg_resources.resource_filename("measure_extinction", "data/")
+    data_path = get_datapath()
     starpair = "HD229238_HD204172"
 
     # plot the extinction curve
@@ -105,7 +105,7 @@ def test_plot_extinction():
 
 def test_plot_average():
     # get the location of the data files
-    data_path = pkg_resources.resource_filename("measure_extinction", "data/")
+    data_path = get_datapath()
 
     # plot the average extinction curve in a separate figure
     # with the default settings

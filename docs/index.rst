@@ -30,8 +30,8 @@ User Documentation
 
    Extinction Calculation <calc_extinction.rst>
    Capabilities <code_capabilities.rst>
+   Data Formats <data_formats.rst>
    Plotting <plotting.rst>
-   Observed Data Formats <data_formats.rst>
    Stellar Models as Standards <model_standards.rst>
 
 Reporting Issues

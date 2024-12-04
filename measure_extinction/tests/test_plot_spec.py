@@ -1,12 +1,12 @@
-import pkg_resources
 import os
 
+from measure_extinction.utils.helpers import get_datapath
 from measure_extinction.plotting.plot_spec import plot_multi_spectra, plot_spectrum
 
 
 def test_plot_spectra():
     # get the location of the data files
-    data_path = pkg_resources.resource_filename("measure_extinction", "data/")
+    data_path = get_datapath()
     starlist = ["hd229238", "hd204172"]
 
     # plot the spectra in separate figures

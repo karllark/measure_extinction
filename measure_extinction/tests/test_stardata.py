@@ -1,13 +1,12 @@
-import pkg_resources
-
 import astropy.units as u
 
+from measure_extinction.utils.helpers import get_datapath
 from measure_extinction.stardata import StarData
 
 
 def test_load_stardata():
     # get the location of the data files
-    data_path = pkg_resources.resource_filename("measure_extinction", "data/")
+    data_path = get_datapath()
 
     # read in the observed data on the star
     star = StarData("hd229238.dat", path=data_path)
@@ -18,7 +17,7 @@ def test_load_stardata():
 
 def test_units_stardata():
     # get the location of the data files
-    data_path = pkg_resources.resource_filename("measure_extinction", "data/")
+    data_path = get_datapath()
 
     # read in the observed data of the star
     star = StarData("hd229238.dat", path=data_path)

@@ -1,9 +1,10 @@
-import pkg_resources
 import argparse
 import numpy as np
 import matplotlib.pyplot as plt
 from astropy.table import QTable
 import astropy.units as u
+
+from measure_extinction.utils.helpers import get_datapath
 
 __all__ = ["mock_stis_data"]
 
@@ -55,7 +56,7 @@ def mock_stis_single_grating(moddata, gname="G140L", applylsfs=True):
 
     nlsfs = len(gtags)
 
-    data_path = pkg_resources.resource_filename("measure_extinction", "utils/STIS_LSF/")
+    data_path = f"{get_datapath()}/../utils/STIS_LSF/"
     lsfs = []
     for i, ctag in enumerate(gtags):
         a = QTable.read(

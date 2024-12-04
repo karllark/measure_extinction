@@ -1,10 +1,6 @@
-#!/usr/bin/env python
-
-from __future__ import absolute_import, division, print_function, unicode_literals
-
-import pkg_resources
 import argparse
 
+from measure_extinction.utils.helpers import get_datapath
 from measure_extinction.stardata import StarData
 from measure_extinction.extdata import ExtData, AverageExtData
 
@@ -31,9 +27,7 @@ def calc_extinction(
         extdata.trans_elv_elvebv()
     elif alav:
         extdata.trans_elv_alav()
-    extdata.save(
-        savepath + "%s_%s_ext.fits" % (redstarname.lower(), compstarname.lower())
-    )
+    extdata.save(f"{savepath}/{redstarname.lower()}_{compstarname.lower()}_ext.fits")
 
 
 def calc_ave_ext(
@@ -65,10 +59,10 @@ def calc_ave_ext(
     """
     extdatas = []
     for starpair in starpair_list:
-        extdata = ExtData("%s%s_ext.fits" % (path, starpair.lower()))
+        extdata = ExtData(f"{path}/{starpair.lower()}_ext.fits")
         extdatas.append(extdata)
     average = AverageExtData(extdatas, min_number=min_number, mask=mask)
-    average.save(path + outname)
+    average.save(f"{path}/{outname}")
 
 
 def main():
@@ -79,7 +73,7 @@ def main():
     parser.add_argument(
         "--path",
         help="path to data files",
-        default=pkg_resources.resource_filename("measure_extinction", "data/"),
+        default=get_datapath(),
     )
     parser.add_argument(
         "--deredden",

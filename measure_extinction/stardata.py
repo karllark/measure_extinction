@@ -213,9 +213,11 @@ class BandData:
             "WFC3_F110W",
             "WFC3_F160W",
         ]
+        # from Calamida et al. 2022 (Amp C)
         _wfc3_band_waves = np.array(
-            [0.2710, 0.3355, 0.4773, 0.6243, 0.7651, 0.8053, 1.1534, 1.5369]
+            [0.270330, 0.335465, 0.477217, 0.624196, 0.764830, 0.802932, 1.153446, 1.536918]
         )
+
         _wfc3_photflam = np.array(
             [
                 3.223e-18,
@@ -497,7 +499,9 @@ class BandData:
                     _flux1_nu *= u.erg / (u.cm * u.cm * u.s * u.Hz)
                     _flux1 = _flux1_nu.to(
                         fluxunit,
-                        equivalencies=u.spectral_density(poss_bands[pband_name][1] * u.micron),
+                        equivalencies=u.spectral_density(
+                            poss_bands[pband_name][1] * u.micron
+                        ),
                     )
                     _flux2_nu = np.power(
                         10.0, (-0.4 * (_mag_vals[0] - _mag_vals[1] + 48.60))
@@ -505,7 +509,9 @@ class BandData:
                     _flux2_nu *= u.erg / (u.cm * u.cm * u.s * u.Hz)
                     _flux2 = _flux2_nu.to(
                         fluxunit,
-                        equivalencies=u.spectral_density(poss_bands[pband_name][1] * u.micron),
+                        equivalencies=u.spectral_density(
+                            poss_bands[pband_name][1] * u.micron
+                        ),
                     )
                     self.band_fluxes[pband_name] = (
                         0.5 * (_flux1.value + _flux2.value),
@@ -591,7 +597,7 @@ def _getspecfilename(line, path):
     eqpos = line.find("=")
     tfile = line[eqpos + 2 :].rstrip()
 
-    return path + tfile
+    return f"{path}/{tfile}"
 
 
 class SpecData:
@@ -760,7 +766,7 @@ class SpecData:
         ----------
         line : string
             formatted line from DAT file
-            example: 'STIS = hd029647_stis.fits'
+            example: 'STIS = hd029647_stis.fits' or 'STIS_Opt = hd029647_stis_Opt.fits'
 
         path : string, optional
             location of the FITS files path
@@ -882,7 +888,31 @@ class SpecData:
         ----------
         line : string
             formatted line from DAT file
-            example: 'NIRCam_SS = hd029647_irs.fits'
+            example: 'NIRCam_SS = hd029647_nircam_ss.fits'
+
+        path : string, optional
+            location of the FITS files path
+
+        Returns
+        -------
+        Updates self.(file, wave_range, waves, flux, uncs, npts, n_waves)
+        """
+        self.read_spectra(line, path)
+
+        self.fluxes = self.fluxes.to(
+            fluxunit, equivalencies=u.spectral_density(self.waves)
+        )
+        self.uncs = self.uncs.to(fluxunit, equivalencies=u.spectral_density(self.waves))
+
+    def read_miri_lrs(self, line, path="./"):
+        """
+        Read in Webb/MRS LRS spectra
+
+        Parameters
+        ----------
+        line : string
+            formatted line from DAT file
+            example: 'MIRI_LRS = hd029647_miri_lrs.fits'
 
         path : string, optional
             location of the FITS files path
@@ -906,7 +936,7 @@ class SpecData:
         ----------
         line : string
             formatted line from DAT file
-            example: 'MIRI_IFU = hd029647_irs.fits'
+            example: 'MIRI_IFU = hd029647_miri_ifu.fits'
 
         path : string, optional
             location of the FITS files path
@@ -1074,7 +1104,7 @@ class StarData:
         """
 
         # open and read all the lines in the file
-        f = open(self.path + self.file, "r")
+        f = open(f"{self.path}/{self.file}", "r")
         self.datfile_lines = list(f)
         f.close()
         # get the photometric band data

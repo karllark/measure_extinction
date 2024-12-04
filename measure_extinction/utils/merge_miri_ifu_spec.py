@@ -1,9 +1,6 @@
-#!/usr/bin/env python
-
 import glob
 import argparse
 import numpy as np
-import pkg_resources
 import matplotlib.pyplot as plt
 
 from astropy.table import QTable
@@ -23,12 +20,12 @@ if __name__ == "__main__":
     parser.add_argument(
         "--inpath",
         help="path where original data files are stored",
-        default=pkg_resources.resource_filename("measure_extinction", "data/Orig"),
+        default="./",
     )
     parser.add_argument(
         "--outpath",
         help="path where merged spectra will be stored",
-        default=pkg_resources.resource_filename("measure_extinction", "data/Out"),
+        default="./",
     )
     parser.add_argument("--outname", help="Output filebase")
     parser.add_argument("--png", help="save figure as a png file", action="store_true")

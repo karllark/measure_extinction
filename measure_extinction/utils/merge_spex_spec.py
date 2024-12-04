@@ -1,9 +1,4 @@
-#!/usr/bin/env python
-
-from __future__ import absolute_import, division, print_function, unicode_literals
-
 import argparse
-import pkg_resources
 import os
 from astropy.table import Table
 
@@ -58,12 +53,12 @@ if __name__ == "__main__":
     parser.add_argument(
         "--inpath",
         help="path where original SpeX ASCII files are stored",
-        default=pkg_resources.resource_filename("measure_extinction", "data/Orig/NIR"),
+        default="./",
     )
     parser.add_argument(
         "--outpath",
         help="path where merged SpeX spectra will be stored",
-        default=pkg_resources.resource_filename("measure_extinction", "data/Spectra"),
+        default="./",
     )
     args = parser.parse_args()
 
