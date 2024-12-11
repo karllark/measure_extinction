@@ -199,7 +199,7 @@ class ModelData(object):
             # dot product does the multiplication and sum
             sed[cspec] = np.dot(weights, self.fluxes[cspec][gsindxs, :])
 
-            sed[cspec][sed[cspec] == 0] = np.NaN
+            sed[cspec][sed[cspec] == 0] = np.nan
             # shift spectrum if velocity given
             if velocity is not None:
                 cwaves = self.waves[cspec]
@@ -216,7 +216,7 @@ class ModelData(object):
         Parameters
         ----------
         params : float array
-            dust extinction parameters [Av, Rv, c2, c3, c4, gamma, x0]
+            dust extinction parameters [Av, Rv, c2, b3, c4, gamma, x0]
 
         sed : dict
             fluxes for each spectral piece
@@ -254,31 +254,28 @@ class ModelData(object):
                 # get the dust extinguished SED (account for the
                 #  systemic velocity of the galaxy [opposite regular sense])
                 shifted_waves = (1.0 - velocity / 2.998e5) * self.waves[cspec]
+
+                # convert to 1/micron as _curve_F99_method does not do this (as of Nov 2024)
+                with u.add_enabled_equivalencies(u.spectral()):
+                    shifted_waves_imicron = u.Quantity(
+                        shifted_waves, 1.0 / u.micron, dtype=np.float64
+                    )
+
                 axav = _curve_F99_method(
-                    shifted_waves,
+                    shifted_waves_imicron.value,
                     Rv,
                     C1,
                     params[2],  # C2
-                    params[3],  # C3
+                    params[3],  # B3
                     params[4],  # C4
                     xo=params[5],  # xo
                     gamma=params[6],  # gamma
                     optnir_axav_x=optnir_axav_x.value,
                     optnir_axav_y=optnir_axav_y,
-                    valid_x_range=[0.033, 11.0],
-                    model_name="FM90_G23_measure_extinction",
+                    fm90_version="B3",
                 )
 
                 ext_sed[cspec] = sed[cspec] * (10 ** (-0.4 * axav * params[0]))
-
-            # # create the extinguished sed
-            # ext_sed = {}
-            # for cspec in self.fluxes.keys():
-            #     # get the dust extinguished SED (account for the
-            #     #  systemic velocity of the galaxy [opposite regular sense])
-            #     shifted_waves = (1.0 - velocity / 2.998e5) * self.waves[cspec]
-            #     axav = g23mod(shifted_waves)
-            #     ext_sed[cspec] = sed[cspec] * (10 ** (-0.4 * axav * params[0]))
 
         else:
             raise ValueError(
