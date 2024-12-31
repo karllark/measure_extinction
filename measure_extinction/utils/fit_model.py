@@ -93,8 +93,16 @@ class FitInfo(object):
         # hi_abs sed
         hi_ext_modsed = modeldata.hi_abs_sed(params[10:12], self.velocities, ext_modsed)
 
-        norm_model = np.average(hi_ext_modsed["BAND"])
-        norm_data = np.average(obsdata.data["BAND"].fluxes.value)
+        norm_mod = []
+        norm_dat = []
+        norm_npts = []
+        for cspec in hi_ext_modsed.keys():
+            gvals = (self.weights[cspec] > 0) & (np.isfinite(hi_ext_modsed[cspec]))
+            norm_npts.append(np.sum(gvals))
+            norm_mod.append(np.average(hi_ext_modsed[cspec][gvals]))
+            norm_dat.append(np.average(obsdata.data[cspec].fluxes[gvals].value))
+        norm_model = np.average(norm_mod, weights=norm_npts)
+        norm_data = np.average(norm_dat, weights=norm_npts)
 
         lnl = 0.0
         for cspec in hi_ext_modsed.keys():
