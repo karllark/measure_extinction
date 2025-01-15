@@ -70,7 +70,6 @@ class FitInfo(object):
         fits the model.
 
         Parameters
-        ``
         ----------
         params : floats
             parameters of the model
