@@ -136,7 +136,7 @@ class MEModel(object):
         if obsdata is not None:
             self.logf = {}
             for cspec in obsdata.data.keys():
-                self.logf[cspec] = -1.0
+                self.logf[cspec] = MEParameter(value=-3.0, bounds=(-9.0, 9.0))
 
     def pprint_parameters(self):
         """
@@ -165,7 +165,7 @@ class MEModel(object):
             tline = ""
             for cname in self.logf.keys():
                 hline += f"{cname} "
-                tline += f"{self.logf[cname]:.2f} "
+                tline += f"{self.logf[cname].value:.2f} "
             print(f"{tline[:-1]} ({hline[:-1]})")
 
     def parameters(self):
@@ -182,7 +182,7 @@ class MEModel(object):
             vals.append(getattr(self, cname).value)
         if hasattr(self, "logf"):
             for ckey in self.logf.keys():
-                vals.append(self.logf[ckey])
+                vals.append(self.logf[ckey].value)
         return np.array(vals)
 
     def parameters_to_fit(self):
@@ -200,7 +200,7 @@ class MEModel(object):
                 vals.append(getattr(self, cname).value)
         if hasattr(self, "logf"):
             for ckey in self.logf.keys():
-                vals.append(self.logf[ckey])
+                vals.append(self.logf[ckey].value)
         return np.array(vals)
 
     def fit_to_parameters(self, fit_params, uncs=None):
@@ -223,7 +223,7 @@ class MEModel(object):
                 i += 1
         if hasattr(self, "logf"):
             for ckey in self.logf.keys():
-                self.logf[ckey] = fit_params[i]
+                self.logf[ckey].value = fit_params[i]
                 i += 1
 
     def get_nonfixed_paramnames(self):
@@ -235,6 +235,10 @@ class MEModel(object):
             cparam = getattr(self, cname)
             if not cparam.fixed:
                 names.append(cname)
+        if hasattr(self, "logf"):
+            for ckey in self.logf.keys():
+                if not self.logf[ckey].fixed:
+                    names.append(f"logf[{ckey}]")
 
         return names
 
@@ -253,6 +257,18 @@ class MEModel(object):
                 raise ValueError(
                     f"{cname} = {pval} is above the bounds ({pbounds[0]}, {pbounds[1]})"
                 )
+        if hasattr(self, "logf"):
+            for ckey in self.logf.keys():
+                pval = self.logf[ckey].value
+                pbounds = self.logf[ckey].bounds
+                if (pbounds[0] is not None) and (pval < pbounds[0]):
+                    raise ValueError(
+                        f"logf[{ckey}] = {pval} is below the bounds ({pbounds[0]}, {pbounds[1]})"
+                    )
+                elif (pbounds[1] is not None) and (pval > pbounds[1]):
+                    raise ValueError(
+                        f"logf[{cname}] = {pval} is above the bounds ({pbounds[0]}, {pbounds[1]})"
+                    )
 
     def add_exclude_region(self, exreg):
         """
@@ -285,7 +301,11 @@ class MEModel(object):
         for cspec in list(obsdata.data.keys()):
             # base weights
             self.weights[cspec] = np.full(len(obsdata.data[cspec].fluxes), 0.0)
-            gvals = (obsdata.data[cspec].npts > 0) & np.isfinite(obsdata.data[cspec].fluxes)
+            gvals = (
+                (obsdata.data[cspec].npts > 0)
+                & np.isfinite(obsdata.data[cspec].fluxes)
+                & (obsdata.data[cspec].uncs.value > 0.0)
+            )
             self.weights[cspec][gvals] = 1.0 / obsdata.data[cspec].uncs[gvals].value
 
             x = 1.0 / obsdata.data[cspec].waves
@@ -583,15 +603,16 @@ class MEModel(object):
 
             if hasattr(self, "logf"):
                 unc = 1.0 / self.weights[cspec][gvals]
-                unc2 = unc**2 + model**2 + np.exp(2.0 * self.logf[cspec])
+                unc2 = unc**2 + model**2 + np.exp(2.0 * self.logf[cspec].value)
                 weights = 1.0 / np.sqrt(unc2)
                 lnextra = np.log(unc2)
             else:
                 weights = self.weights[cspec][gvals]
                 lnextra = 0.0
 
-            chiarr = np.square(
-                ((obsdata.data[cspec].fluxes[gvals].value - model) * weights + lnextra)
+            chiarr = (
+                np.square(((obsdata.data[cspec].fluxes[gvals].value - model) * weights))
+                + lnextra
             )
             lnl += -0.5 * np.sum(chiarr)
 
@@ -622,6 +643,15 @@ class MEModel(object):
                     return self.lnp_bignum
                 if pprior is not None:
                     lnp += -0.5 * ((pval - pprior[0]) / pprior[1]) ** 2
+
+        if hasattr(self, "logf"):
+            for ckey in self.logf.keys():
+                pval = self.logf[ckey].value
+                pbounds = self.logf[ckey].bounds
+                if (pbounds[0] is not None) and (pval < pbounds[0]):
+                    return self.lnp_bignum
+                elif (pbounds[1] is not None) and (pval > pbounds[1]):
+                    return self.lnp_bignum
 
         return lnp
 
@@ -700,7 +730,15 @@ class MEModel(object):
 
         return (outmod, result)
 
-    def fit_sampler(self, obsdata, modinfo, nsteps=1000, burnfrac=0.1, multiproc=False):
+    def fit_sampler(
+        self,
+        obsdata,
+        modinfo,
+        nsteps=1000,
+        burnfrac=0.1,
+        save_samples=None,
+        multiproc=False,
+    ):
         """
         Run a samplier (specifically emcee) to find the detailed
         parameters including uncertainties.
@@ -718,6 +756,9 @@ class MEModel(object):
 
         burnfrac : float
             fraction of nsteps to discard as the burn in [default=0.1]
+
+        save_samples : filename
+            name of hd5 file to save the MCMC samples
 
         multiproc : boolean
             set to run the emcee in parallel (does not speed up things much) [default=False]
@@ -740,20 +781,20 @@ class MEModel(object):
         if not np.isfinite(outmod.lnprior()):
             raise ValueError("ln(prior) is not finite")
 
-        # simple function to turn the log(likelihood) into the chisqr
-        #  required as op.minimize function searches for the minimum chisqr (not max likelihood like MCMC algorithms)
-        # def lnprob(params, memodel, *args):
-        #    memodel.fit_to_parameters(params)
-        #    return memodel.lnprob(*args)
-
         # get the non-fixed initial parameters
         p0 = outmod.parameters_to_fit()
 
         # setup the sampliers
         ndim = len(p0)
         nwalkers = 2 * ndim
+
         # setting up the walkers to start "near" the inital guess
         p = [p0 * (1 + 0.01 * np.random.normal(0, 1.0, ndim)) for k in range(nwalkers)]
+
+        if save_samples:
+            # Don't forget to clear it in case the file already exists
+            save_backend = emcee.backends.HDFBackend(save_samples)
+            save_backend.reset(nwalkers, ndim)
 
         # setup and run the sampler
         if multiproc:
@@ -772,6 +813,7 @@ class MEModel(object):
                 ndim,
                 _lnprob,
                 args=(outmod, obsdata, modinfo),
+                backend=save_backend,
             )
             sampler.run_mcmc(p, nsteps, progress=True)
 
@@ -835,6 +877,7 @@ class MEModel(object):
         hi_ext_modsed = self.hi_abs_sed(modinfo, ext_modsed)
 
         ax = axes[0]
+        yrange = [100.0, -100.0]
         for cspec in obsdata.data.keys():
             if cspec == "BAND":
                 ptype = "o"
@@ -879,19 +922,21 @@ class MEModel(object):
                 alpha=calpha,
             )
 
+            # info for y limits of plot - make sure not not include Ly-alpha
+            gvals = np.logical_or(
+                modinfo.waves[cspec] > 0.125 * u.micron,
+                modinfo.waves[cspec] < 0.118 * u.micron,
+            )
+            gvals = np.logical_and(gvals, modinfo.waves[cspec] > 0.11 * u.micron)
+            multval = self.norm.value * np.power(modinfo.waves[cspec][gvals], 4.0)
+            mflux = (hi_ext_modsed[cspec][gvals] * multval).value
+            tyrange = np.log10([np.nanmin(mflux), np.nanmax(mflux)])
+            yrange[0] = np.min([tyrange[0], yrange[0]])
+            yrange[1] = np.max([tyrange[1], yrange[1]])
+
         ax.set_xscale("log")
         ax.set_yscale("log")
 
-        # get a reasonable y range
-        cspec = "MODEL_FULL_LOWRES"
-        gvals = np.logical_or(
-            modinfo.waves[cspec] > 0.125 * u.micron,
-            modinfo.waves[cspec] < 0.118 * u.micron,
-        )
-        gvals = np.logical_and(gvals, modinfo.waves[cspec] > 0.11 * u.micron)
-        multval = self.norm.value * np.power(modinfo.waves[cspec][gvals], 4.0)
-        mflux = (hi_ext_modsed[cspec][gvals] * multval).value
-        yrange = np.log10([np.nanmin(mflux), np.nanmax(mflux)])
         ydelt = yrange[1] - yrange[0]
         yrange[0] = 10 ** (yrange[0] - 0.1 * ydelt)
         yrange[1] = 10 ** (yrange[1] + 0.1 * ydelt)
@@ -903,7 +948,7 @@ class MEModel(object):
         ax.tick_params("both", length=10, width=2, which="major")
         ax.tick_params("both", length=5, width=1, which="minor")
         axes[1].set_ylim(-10.0, 10.0)
-        axes[1].plot([0.1, 2.5], [0.0, 0.0], "k:")
+        axes[1].axhline(0.0, color="k", linestyle=":")
 
         k = 0
         for cname in self.paramnames:

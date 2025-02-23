@@ -116,10 +116,10 @@ class BandData:
                 if colpos == -1:
                     colpos = len(line)
                 # if there is both a reference and a unit
-                elif line.find(";") != -1 and (
-                    line.find("mJy") != -1 or line.find("ABmag") != -1
-                ):
-                    colpos = min(line.find(";"), line.find("mJy"), line.find("ABmag"))
+                elif (line.find(";") != -1) and (line.find("mJy") != -1):
+                    colpos = min(line.find(";"), line.find("mJy"))
+                elif (line.find(";") != -1) and (line.find("ABmag") != -1):
+                    colpos = min(line.find(";"), line.find("ABmag"))
                 band_name = line[0:eqpos].strip()
 
                 save_band = False
@@ -1229,35 +1229,45 @@ class StarData:
             for line in self.datfile_lines:
                 if line[0] == "#":
                     pass
-                elif line.startswith("IUE") and ("IUE" in only_data or only_data == "ALL"):
+                elif line.startswith("IUE") and (
+                    "IUE" in only_data or only_data == "ALL"
+                ):
                     fname = _getspecfilename(line, self.path)
                     if os.path.isfile(fname):
                         self.data["IUE"] = SpecData("IUE")
                         self.data["IUE"].read_iue(line, path=self.path)
                     else:
                         warnings.warn(f"{fname} does not exist", UserWarning)
-                elif line.startswith("FUSE") and ("FUSE" in only_data or only_data == "ALL"):
+                elif line.startswith("FUSE") and (
+                    "FUSE" in only_data or only_data == "ALL"
+                ):
                     fname = _getspecfilename(line, self.path)
                     if os.path.isfile(fname):
                         self.data["FUSE"] = SpecData("FUSE")
                         self.data["FUSE"].read_fuse(line, path=self.path)
                     else:
                         warnings.warn(f"{fname} does not exist", UserWarning)
-                elif line.startswith("STIS_Opt") and ("STIS_Opt" in only_data or only_data == "ALL"):
+                elif line.startswith("STIS_Opt") and (
+                    "STIS_Opt" in only_data or only_data == "ALL"
+                ):
                     fname = _getspecfilename(line, self.path)
                     if os.path.isfile(fname):
                         self.data["STIS_Opt"] = SpecData("STIS_Opt")
                         self.data["STIS_Opt"].read_stis(line, path=self.path)
                     else:
                         warnings.warn(f"{fname} does not exist", UserWarning)
-                elif line.startswith("STIS") and ("STIS" in only_data or only_data == "ALL"):
+                elif line.startswith("STIS") and (
+                    "STIS" in only_data or only_data == "ALL"
+                ):
                     fname = _getspecfilename(line, self.path)
                     if os.path.isfile(fname):
                         self.data["STIS"] = SpecData("STIS")
                         self.data["STIS"].read_stis(line, path=self.path)
                     else:
                         warnings.warn(f"{fname} does not exist", UserWarning)
-                elif line.startswith("SpeX_SXD") and ("SpeX_SXD" in only_data or only_data == "ALL"):
+                elif line.startswith("SpeX_SXD") and (
+                    "SpeX_SXD" in only_data or only_data == "ALL"
+                ):
                     fname = _getspecfilename(line, self.path)
                     if os.path.isfile(fname):
                         self.data["SpeX_SXD"] = SpecData("SpeX_SXD")
@@ -1269,7 +1279,9 @@ class StarData:
                         )
                     else:
                         warnings.warn(f"{fname} does not exist", UserWarning)
-                elif line.startswith("SpeX_LXD") and ("SpeX_LXD" in only_data or only_data == "ALL"):
+                elif line.startswith("SpeX_LXD") and (
+                    "SpeX_LXD" in only_data or only_data == "ALL"
+                ):
                     fname = _getspecfilename(line, self.path)
                     if os.path.isfile(fname):
                         self.data["SpeX_LXD"] = SpecData("SpeX_LXD")
@@ -1281,7 +1293,11 @@ class StarData:
                         )
                     else:
                         warnings.warn(f"{fname} does not exist", UserWarning)
-                elif line.startswith("IRS") and "IRS15" not in line and ("IRS" in only_data or only_data == "ALL"):
+                elif (
+                    line.startswith("IRS")
+                    and "IRS15" not in line
+                    and ("IRS" in only_data or only_data == "ALL")
+                ):
                     fname = _getspecfilename(line, self.path)
                     if os.path.isfile(fname):
                         self.data["IRS"] = SpecData("IRS")
@@ -1293,7 +1309,9 @@ class StarData:
                         )
                     else:
                         warnings.warn(f"{fname} does not exist", UserWarning)
-                elif line.startswith("NIRISS_SOSS") and ("NIRISS_SOSS" in only_data or only_data == "ALL"):
+                elif line.startswith("NIRISS_SOSS") and (
+                    "NIRISS_SOSS" in only_data or only_data == "ALL"
+                ):
                     fname = _getspecfilename(line, self.path)
                     if os.path.isfile(fname):
                         self.data["NIRISS_SOSS"] = SpecData("NIRISS_SOSS")
@@ -1303,7 +1321,9 @@ class StarData:
                         )
                     else:
                         warnings.warn(f"{fname} does not exist", UserWarning)
-                elif line.startswith("NIRCam_SS") and ("NIRCam_SS" in only_data or only_data == "ALL"):
+                elif line.startswith("NIRCam_SS") and (
+                    "NIRCam_SS" in only_data or only_data == "ALL"
+                ):
                     fname = _getspecfilename(line, self.path)
                     if os.path.isfile(fname):
                         self.data["NIRCam_SS"] = SpecData("NIRCam_SS")
@@ -1313,7 +1333,9 @@ class StarData:
                         )
                     else:
                         warnings.warn(f"{fname} does not exist", UserWarning)
-                elif line.startswith("MIRI_LRS") and ("MIRI_LRS" in only_data or only_data == "ALL"):
+                elif line.startswith("MIRI_LRS") and (
+                    "MIRI_LRS" in only_data or only_data == "ALL"
+                ):
                     fname = _getspecfilename(line, self.path)
                     if os.path.isfile(fname):
                         self.data["MIRI_LRS"] = SpecData("MIRI_LRS")
@@ -1323,7 +1345,9 @@ class StarData:
                         )
                     else:
                         warnings.warn(f"{fname} does not exist", UserWarning)
-                elif line.startswith("MIRI_IFU") and ("MIRI_IFU" in only_data or only_data == "ALL"):
+                elif line.startswith("MIRI_IFU") and (
+                    "MIRI_IFU" in only_data or only_data == "ALL"
+                ):
                     fname = _getspecfilename(line, self.path)
                     if os.path.isfile(fname):
                         self.data["MIRI_IFU"] = SpecData("MIRI_IFU")
@@ -1333,7 +1357,9 @@ class StarData:
                         )
                     else:
                         warnings.warn(f"{fname} does not exist", UserWarning)
-                elif line.startswith("MODEL_FULL_LOWRES") and ("MODEL_FULL_LOWRES" in only_data or only_data == "ALL"):
+                elif line.startswith("MODEL_FULL_LOWRES") and (
+                    "MODEL_FULL_LOWRES" in only_data or only_data == "ALL"
+                ):
                     fname = _getspecfilename(line, self.path)
                     if os.path.isfile(fname):
                         self.data["MODEL_FULL_LOWRES"] = SpecData("MODEL_FULL_LOWRES")
@@ -1343,7 +1369,9 @@ class StarData:
                         )
                     else:
                         warnings.warn(f"{fname} does not exist", UserWarning)
-                elif line.startswith("MODEL_FULL") and ("MODEL_FULL" in only_data or only_data == "ALL"):
+                elif line.startswith("MODEL_FULL") and (
+                    "MODEL_FULL" in only_data or only_data == "ALL"
+                ):
                     fname = _getspecfilename(line, self.path)
                     if os.path.isfile(fname):
                         self.data["MODEL_FULL"] = SpecData("MODEL_FULL")
@@ -1670,7 +1698,7 @@ class StarData:
             )
             yplotvals = ymult * yvals
             if yoffset_type == "multiply":
-                yplotvals *= yoffset
+                yplotvals *= 10**yoffset
             else:
                 yplotvals += yoffset
             if curtype == "BAND":
@@ -1705,6 +1733,10 @@ class StarData:
                     & (waves <= annotate_wave_range[1])
                 )
                 ann_val = np.nanmedian(yplotvals[ann_indxs])
+                if yoffset_type == "multiply":
+                    ann_val *= 10**annotate_yoffset
+                else:
+                    ann_val += yoffset
                 ann_val += (annotate_yoffset,)
                 ann_xval = 0.5 * np.sum(annotate_wave_range.value)
                 if wavenum:

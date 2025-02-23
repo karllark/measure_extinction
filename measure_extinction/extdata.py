@@ -770,7 +770,7 @@ class ExtData:
         -------
         Updates self.(exts, uncs)
         """
-        if (self.type_rel_band != "V") and (self.type_rel_band != 0.55 * u.micron):
+        if (self.type_rel_band != "V") and (self.type_rel_band != 0.55 * u.micron) and (self.type_rel_band != 5500. * u.angstrom):
             warnings.warn(
                 "attempt to normalize a non-E(lambda-V) curve with A(V)", UserWarning
             )

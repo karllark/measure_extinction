@@ -414,7 +414,7 @@ def plot_multi_extinction(
     fitmodel=False,
     HI_lines=False,
     range=None,
-    spread=False,
+    spread=0.0,
     exclude=[],
     log=False,
     text_offsets=[],
@@ -454,9 +454,9 @@ def plot_multi_extinction(
     range : list of 2 floats [default=None]
         Wavelength range to be plotted (in micron) - [min,max]
 
-    spread : boolean [default=False]
-        Whether or not to spread the extinction curves out by adding a vertical offset to each curve
-
+    spread : float [default=0]
+        Amount to addiatively spread the curves 
+ 
     exclude : list of strings [default=[]]
         List of data type(s) to exclude from the plot (e.g., "IRS", "IRAC1")
 
@@ -515,12 +515,17 @@ def plot_multi_extinction(
         text_angles = np.full(len(starpair_list), 10)
 
     for i, starpair in enumerate(starpair_list):
+        if ".fits" not in starpair:
+            fname = "%s%s_ext.fits" % (path, starpair.lower())
+        else:
+            fname = starpair 
+
         # read in the extinction curve data
-        extdata = ExtData("%s%s_ext.fits" % (path, starpair.lower()))
+        extdata = ExtData(fname)
 
         # spread out the curves if requested
-        if spread:
-            yoffset = 0.25 * i
+        if spread != 0.0:
+            yoffset = spread * i
         else:
             yoffset = 0.0
 
@@ -759,7 +764,7 @@ def plot_extinction(
         ax.set_title(starpair, fontsize=50)
     else:
         ax.set_title(extdata.red_file.replace(".dat", ""), fontsize=50)
-    if extdata.comp_file != "":
+    if (extdata.comp_file is not None) and (extdata.comp_file != ""):
         ax.text(
             0.99,
             0.95,
@@ -795,14 +800,12 @@ def main():
     # commandline parser
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "starpair_list",
-        nargs="+",
-        help='pairs of star names for which to plot the extinction curve, in the format "reddenedstarname_comparisonstarname", without spaces',
+        "starpair_list", nargs="+", help="filenames of extinction curves"
     )
     parser.add_argument(
         "--path",
         help="path to the data files",
-        default=get_datapath(),
+        default="./",
     )
     parser.add_argument("--alax", help="plot A(lambda)/A(X)", action="store_true")
     parser.add_argument(
@@ -827,8 +830,9 @@ def main():
     )
     parser.add_argument(
         "--spread",
-        help="spread the curves out over the figure; can only be used in combination with --onefig",
-        action="store_true",
+        help="spread the curves out over the figure by this amount; can only be used in combination with --onefig",
+        default=0.0,
+        type=float,
     )
     parser.add_argument(
         "--exclude",
