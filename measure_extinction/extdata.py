@@ -3,6 +3,7 @@ import numpy as np
 import astropy.units as u
 
 from astropy.io import fits
+from astropy.table import QTable
 from astropy.modeling.powerlaws import PowerLaw1D
 from astropy.modeling import Parameter
 from astropy.modeling.fitting import LevMarLSQFitter
@@ -890,6 +891,7 @@ class ExtData:
         req_datasources,
         remove_uvwind_region=False,
         remove_lya_region=False,
+        remove_below_lya=False,
         remove_irsblue=False,
     ):
         """
@@ -947,6 +949,9 @@ class ExtData:
         if remove_lya_region:
             npts[np.logical_and(8.0 / u.micron <= x, x < 8.475 / u.micron)] = 0
 
+        if remove_below_lya:
+            npts[8.0 / u.micron <= x] = 0
+
         # sort the data
         # at the same time, remove points with no data
         (gindxs,) = np.where(npts > 0)
@@ -957,10 +962,50 @@ class ExtData:
         unc = unc[gindxs]
         return (wave, y, unc)
 
+    def create_param_table(self, param_names, parameters, type="best",
+                           parameters_punc=None, parameters_munc=None):
+        """
+        Parameters
+        ----------
+        param_names : str list
+            parameters names
+
+        parameters : float array
+            values of the parameters - either best for p50
+
+        parameters_punc : float array
+            positive uncertainties of paramters
+            if present, then the type of parameters is "p50", otherwise "best"
+
+        parameters_munc : float array
+            negative uncertainties of paramters
+
+        Returns
+        -------
+        ptable : QTable
+            astropy table giving the best, p50, munc, punc, unc values
+            depending on what is passed
+        """
+        nparams = len(param_names)
+        ptable = QTable(
+            names=np.concatenate([["name"], param_names]),
+            dtype=["str"] + nparams * ["float"],
+        )
+        if parameters_punc is None:
+            ptable.add_row(np.concatenate([["best"], parameters]))
+        else:
+            ptable.add_row(np.concatenate([["p50"], parameters]))
+            ptable.add_row(np.concatenate([["unc"], 0.5 * (parameters_munc + parameters_munc)]))
+            ptable.add_row(np.concatenate([["punc"], parameters_punc]))
+            ptable.add_row(np.concatenate([["munc"], parameters_munc]))
+
+        return ptable
+
     def save(
         self,
         ext_filename,
         column_info=None,
+        fit_params=None,
         save_params=None,
         fm90_best_params=None,
         fm90_per_params=None,
@@ -979,26 +1024,9 @@ class ExtData:
             dictionary with information about the dust column
             for example: {'ebv': 0.1, 'rv': 4.2, 'av': 0.42}
 
-        save_params : dict
-            "type" - type of parameters (e.g., FM90, P92)
-            "best" - best fit parameters as tuple (names, values)
-            "per" - percentile parameters as tuple (names, p50s, puncs, muncs)
-
-        fm90_best_params : tuple of 2 float vectors
-           parameter names and best fit values for the FM90 fit
-           (legacy, use save_params instead)
-
-        fm90_per_params : tuple of 2 float vectors
-           parameter names and (p50, +unc, -unc) values for the FM90 fit
-           (legacy, use save_params instead)
-
-        p92_best_params : tuple of 2 float vectors
-           parameter names and best fit values for the P92 fit
-           (legacy, use save_params instead)
-
-        p92_per_params : tuple of 2 float vectors
-           parameter names and (p50, +unc, -unc) values for the P92 fit
-           (legacy, use save_params instead)
+        fit_params : dict
+            dictionary of astropy tables giving the fit parameters
+            can be created using the member function create_param_tables
         """
         # generate the primary header
         pheader = fits.Header()
@@ -1062,69 +1090,12 @@ class ExtData:
                     else:
                         hval.append(self.columns[f"{ckey}"])
 
-        # legacy save param keywords
-        if fm90_best_params is not None:
-            save_params = {"type": "FM90", "best": fm90_best_params}
-            if fm90_per_params is not None:
-                save_params["per"] = fm90_per_params
-        if p92_best_params is not None:
-            save_params = {"type": "P92", "best": p92_best_params}
-            if p92_per_params is not None:
-                save_params["per"] = p92_per_params
-
-        # save parameters
-        if save_params is not None:
-            if "type" in save_params.keys():
-                tstr = save_params["type"]
-            else:
-                raise ValueError("type not in save_params dict")
-
-            if "best" in save_params.keys():
-                best_params = save_params["best"]
-                best_keys = _hierarch_keywords(best_params[0])
-                hname = np.concatenate((hname, best_keys))
-                hval = np.concatenate((hval, best_params[1]))
-                tcomment = [f"{tstr} parameter" for pname in best_params[0]]
-                hcomment = np.concatenate((hcomment, tcomment))
-
-            if "per" in save_params.keys():
-                params = save_params["per"]
-                # p50 values
-                p50_keys = _hierarch_keywords([f"{cp}_p50" for cp in params[0]])
-                hname = np.concatenate((hname, p50_keys))
-                hval = np.concatenate((hval, [cv[0] for cv in params[1]]))
-                tcomment = [f"{tstr} p50 parameter" for pname in params[0]]
-                hcomment = np.concatenate((hcomment, tcomment))
-
-                # +unc values
-                punc_keys = _hierarch_keywords([f"{cp}_punc" for cp in params[0]])
-                hname = np.concatenate((hname, punc_keys))
-                hval = np.concatenate((hval, [cv[1] for cv in params[1]]))
-                tcomment = [f"{tstr} punc parameter" for pname in params[0]]
-                hcomment = np.concatenate((hcomment, tcomment))
-
-                # -unc values
-                munc_keys = _hierarch_keywords([f"{cp}_munc" for cp in params[0]])
-                hname = np.concatenate((hname, munc_keys))
-                hval = np.concatenate((hval, [cv[2] for cv in params[1]]))
-                tcomment = [f"{tstr} munc parameter" for pname in params[0]]
-                hcomment = np.concatenate((hcomment, tcomment))
-
-        # other possible header keywords
-        #   setup to populate if info passed (TBD)
-        #         'LOGT','LOGT_UNC','LOGG','LOGG_UNC','LOGZ','LOGZ_UNC',
-        #         'AV','AV_unc','RV','RV_unc',
-        #         'FMC2','FMC2U','FMC3','FMC3U','FMC4','FMC4U',
-        #         'FMx0','FMx0U','FMgam','FMgamU',
-        #         'LOGHI','LOGHI_U','LOGHIMW','LHIMW_U',
-        #         'NHIAV','NHIAV_U','NHIEBV','NHIEBV_U'
         for k in range(len(hname)):
             pheader.set(hname[k], hval[k], hcomment[k])
 
         pheader.add_comment("Created with measure_extinction package")
         pheader.add_comment("https://github.com/karllark/measure_extinction")
         phdu = fits.PrimaryHDU(header=pheader)
-
         hdulist = fits.HDUList([phdu])
 
         # write the portions of the extinction curve from each dataset
@@ -1195,6 +1166,13 @@ class ExtData:
                 )
             tbhdu.header.set("EXTNAME", "MODEXT", "Fitted model extinction")
             hdulist.append(tbhdu)
+
+        # save parameters passed as tables in extensions
+        if fit_params is not None:
+            for ptype in fit_params.keys():
+                tbhdu = fits.table_to_hdu(fit_params[ptype])
+                tbhdu.header.set("EXTNAME", f"{ptype}_FIT", f"{ptype} fit parameters")
+                hdulist.append(tbhdu)
 
         hdulist.writeto(ext_filename, overwrite=True)
 
@@ -1306,6 +1284,17 @@ class ExtData:
                     punc = float(pheader.get(f"{bkey}_punc"))
                     munc = float(pheader.get(f"{bkey}_munc"))
                     self.columns_p50_fit[bkey] = (val, punc, munc)
+
+        # get any fit parameters that are included
+        self.fit_params = {}
+        for cname in extnames:
+            if "FIT" in cname:
+                fname = cname.split("_")[0]
+                self.fit_params[fname] = QTable.read(ext_filename, hdu=cname)
+                print(self.fit_params[fname])
+
+        # legacy code for old way of saving fit parameters
+        # should remove at some point, or make it so that the above new format is created
 
         # get FM90 parameters if they exist
         #   include variant with B3=C3/gamma^2 instead of C3
