@@ -135,10 +135,11 @@ def get_phot(mwave, mflux, band_names, band_resp_filenames):
         # check if the wavelength units are in microns instead of Angstroms
         #   may not work
         if max(bp.waveset) < 500 * u.Angstrom:
-            print("filter wavelengths not in angstroms")
-            exit()
-            # a.waveset *= 1e4
-        iresp = bp(mwave)
+            # print(f"filter {cband} wavelengths not in angstroms, assuming in microns")
+            mfac = 1e-4
+        else:
+            mfac = 1.0
+        iresp = bp(mwave * mfac)
         inttop = np.trapezoid(mwave * iresp * mflux, mwave)
         intbot = np.trapezoid(mwave * iresp, mwave)
         bflux = inttop / intbot
@@ -215,7 +216,7 @@ def make_obsdata_from_model(
     output_filebase=None,
     output_path=None,
     show_plot=False,
-    only_dat=False,
+    specs="all",
 ):
     """
     Create the necessary data files (.dat and spectra) from a
@@ -243,6 +244,10 @@ def make_obsdata_from_model(
 
     show_plot: boolean
         show a plot of the original and rebinned spectra/photometry
+
+    specs: list
+        specify the specific spectra to mock, [default="all"]
+        set to None to turn off outputing any spectra (i.e., only output DAT file)
     """
 
     if output_filebase is None:
@@ -289,6 +294,13 @@ def make_obsdata_from_model(
     mwave = mspec["Wave"]
     mflux = mspec["SFlux"]
 
+    # determine which spectra to mock and output
+    if specs == "all":
+        # fmt: off
+        specs = ["MODEL_FULL_LOWRES", "MODEL_FULL", "IUE", "STIS", "IRS",
+                 "NIRISS_SOSS", "NIRCam_SS", "MIRI_LRS", "MIRI_MRS"]
+        # fmt: on
+
     # rebin to R=10000 for speed
     #   use a wavelength range that spans FUSE to Spitzer IRS
     rbres = 10000.0
@@ -306,29 +318,32 @@ def make_obsdata_from_model(
         mwave.value, mflux.value, rbres_lowres, [912.0, 310000.0]
     )
     full_file_lowres = "%s_full_lowres.fits" % (output_filebase)
-    if not only_dat:
+    if (specs is not None) and ("MODEL_FULL_LOWRES" in specs):
         # save the full spectrum to a binary FITS table
         otable_lowres = QTable()
         otable_lowres["WAVELENGTH"] = Column(wave_rebin_lowres, unit=u.angstrom)
         otable_lowres["FLUX"] = Column(flux_rebin_lowres, unit=fluxunit)
         otable_lowres["SIGMA"] = Column(flux_rebin_lowres * 0.01, unit=fluxunit)
         otable_lowres["NPTS"] = Column(npts_rebin_lowres)
-        otable_lowres.write("%s/Models/%s" % (output_path, full_file_lowres), overwrite=True)
+        otable_lowres.write(
+            "%s/Models/%s" % (output_path, full_file_lowres), overwrite=True
+        )
     specinfo["MODEL_FULL_LOWRES"] = full_file_lowres
 
     full_file = "%s_full.fits" % (output_filebase)
-    if not only_dat:
-        # save the full spectrum to a binary FITS table
+    # save the full spectrum to a binary FITS table
+    if specs is not None:
         otable = QTable()
         otable["WAVELENGTH"] = Column(wave_rebin, unit=u.angstrom)
         otable["FLUX"] = Column(flux_rebin, unit=fluxunit)
         otable["SIGMA"] = Column(flux_rebin * 0.01, unit=fluxunit)
         otable["NPTS"] = Column(npts_rebin)
-        otable.write("%s/Models/%s" % (output_path, full_file), overwrite=True)
+        if "MODEL_FULL" in specs:
+            otable.write("%s/Models/%s" % (output_path, full_file), overwrite=True)
     specinfo["MODEL_FULL"] = full_file
 
     iue_file = "%s_iue.fits" % (output_filebase)
-    if not only_dat:
+    if (specs is not None) and ("IUE" in specs):
         # IUE mock observation
         # Resolution approximately 400-600
         iue_fwhm_pix = rbres / 600.0
@@ -353,7 +368,7 @@ def make_obsdata_from_model(
 
     stis_uv_file = "%s_stis_uv.fits" % (output_filebase)
     stis_opt_file = "%s_stis_opt.fits" % (output_filebase)
-    if not only_dat:
+    if (specs is not None) and ("STIS" in specs):
         # create the ultraviolet HST/STIS mock observation
         stis_table = mock_stis_data(otable)
         # UV STIS obs
@@ -369,7 +384,7 @@ def make_obsdata_from_model(
     specinfo["STIS_Opt"] = stis_opt_file
 
     lrs_file = "%s_irs.fits" % (output_filebase)
-    if not only_dat:
+    if (specs is not None) and ("IRS" in specs):
         # Spitzer IRS mock observation
         # Resolution approximately 100
         lrs_fwhm_pix = rbres / 100.0
@@ -390,7 +405,7 @@ def make_obsdata_from_model(
     specinfo["IRS"] = lrs_file
 
     nrs_file = "%s_niriss_soss.fits" % (output_filebase)
-    if not only_dat:
+    if (specs is not None) and ("NIRISS_SOSS" in specs):
         # Webb NIRISS SOSS spectra mock observation
         # Resolution approximately 700
         nrc_fwhm_pix = rbres / 700
@@ -411,7 +426,7 @@ def make_obsdata_from_model(
     specinfo["NIRISS_SOSS"] = nrs_file
 
     nrc_file = "%s_nircam_ss.fits" % (output_filebase)
-    if not only_dat:
+    if (specs is not None) and ("NIRCam_SS" in specs):
         # Webb NIRCam spectra mock observation
         # Resolution approximately 1600
         nrc_fwhm_pix = rbres / 1600.0
@@ -432,7 +447,7 @@ def make_obsdata_from_model(
     specinfo["NIRCam_SS"] = nrc_file
 
     miri_lrs_file = "%s_miri_lrs.fits" % (output_filebase)
-    if not only_dat:
+    if (specs is not None) and ("MIRI_LRS" in specs):
         # MIRI LRS mock observation
         # Resolution approximately 40-160
         miri_lrs_fwhm_pix = rbres / 160.0
@@ -453,7 +468,7 @@ def make_obsdata_from_model(
     specinfo["MIRI_LRS"] = miri_lrs_file
 
     mrs_file = "%s_miri_ifu.fits" % (output_filebase)
-    if not only_dat:
+    if (specs is not None) and ("MIRI_MRS" in specs):
         # Webb MIRI IFU mock observation
         # Resolution approximately 3000
         mrs_fwhm_pix = rbres / 3000.0
@@ -477,7 +492,7 @@ def make_obsdata_from_model(
     # compute photometry
     # band_path = "%s/Band_RespCurves/" % output_path
     john_bands = ["U", "B", "V", "R", "I", "J", "H", "K"]
-    john_fnames = ["John%s.dat" % (cband) for cband in john_bands]
+    john_fnames = [f"John{cband}.dat" for cband in john_bands]
     hst_bands = [
         "HST_WFC3_UVIS1_F275W",
         "HST_WFC3_UVIS1_F336W",
@@ -497,13 +512,13 @@ def make_obsdata_from_model(
         "HST_WFPC2_4_F814W",
     ]
     hst_fnames = [""]
-    # spitzer_bands = ['IRAC1', 'IRAC2', 'IRAC3', 'IRAC4', 'IRS15', 'MIPS24']
-    # spitzer_fnames = ["{}/{}.dat".format(band_path, cband)
-    #                   for cband in spitzer_bands]
-    bands = john_bands + hst_bands
-    band_fnames = john_fnames + hst_fnames
-    # bands = john_bands
-    # band_fnames = john_fnames
+    # fmt: off
+    ir_bands = ['IRAC1', 'IRAC2', 'IRAC3', 'IRAC4', 'IRS15', 'MIPS24',
+                'WISE1', 'WISE2', 'WISE3', 'WISE4']
+    # fmt: on
+    ir_fnames = [f"{cband}.dat" for cband in ir_bands]
+    bands = john_bands + ir_bands + hst_bands
+    band_fnames = john_fnames + ir_fnames + hst_fnames
 
     bandinfo = get_phot(wave_rebin, flux_rebin, bands, band_fnames)
 
@@ -525,11 +540,10 @@ def make_obsdata_from_model(
 
     if show_plot:
         fig, ax = plt.subplots(figsize=(10, 8))
-        # indxs, = np.where(npts_rebin > 0)
         ax.plot(wave_rebin * 1e-4, flux_rebin * 2.0, "b-")
         ax.plot(bandinfo.waves, bandinfo.fluxes, "ro")
 
-        if not only_dat:
+        if (specs is not None) and ("STIS" in specs):
             (indxs,) = np.where(rb_stis_uv["NPTS"] > 0)
             ax.plot(
                 rb_stis_uv["WAVELENGTH"][indxs].to(u.micron),
@@ -543,21 +557,25 @@ def make_obsdata_from_model(
                 "g-",
             )
 
+        if (specs is not None) and ("IUE" in specs):
             (indxs,) = np.where(rb_iue["NPTS"] > 0)
             ax.plot(
                 rb_iue["WAVELENGTH"][indxs].to(u.micron), rb_iue["FLUX"][indxs], "r-"
             )
 
+        if (specs is not None) and ("NIRCam_SS" in specs):
             (indxs,) = np.where(rb_nrc["NPTS"] > 0)
             ax.plot(
                 rb_nrc["WAVELENGTH"][indxs].to(u.micron), rb_nrc["FLUX"][indxs], "c-"
             )
 
+        if (specs is not None) and ("IRS" in specs):
             (indxs,) = np.where(rb_lrs["NPTS"] > 0)
             ax.plot(
                 rb_lrs["WAVELENGTH"][indxs].to(u.micron), rb_lrs["FLUX"][indxs], "r:"
             )
 
+        if (specs is not None) and ("NIRISS_SOSS" in specs):
             (indxs,) = np.where(rb_niriss["NPTS"] > 0)
             ax.plot(
                 rb_niriss["WAVELENGTH"][indxs].to(u.micron),
@@ -565,6 +583,7 @@ def make_obsdata_from_model(
                 "r-",
             )
 
+        if (specs is not None) and ("MIRI_LRS" in specs):
             (indxs,) = np.where(rb_miri_lrs["NPTS"] > 0)
             ax.plot(
                 rb_miri_lrs["WAVELENGTH"][indxs].to(u.micron),
@@ -572,6 +591,7 @@ def make_obsdata_from_model(
                 "r--",
             )
 
+        if (specs is not None) and ("MIRI_IFU" in specs):
             (indxs,) = np.where(rb_mrs["NPTS"] > 0)
             ax.plot(
                 rb_mrs["WAVELENGTH"][indxs].to(u.micron), rb_mrs["FLUX"][indxs], "g-"
@@ -600,5 +620,6 @@ if __name__ == "__main__":
         output_path="/home/kgordon/Python/extstar_data",
         model_params=model_params,
         show_plot=True,
-        only_dat=False,
+        # specs="all",
+        specs=["IUE", "MIRI_LRS"],
     )

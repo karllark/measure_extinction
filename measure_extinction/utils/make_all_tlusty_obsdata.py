@@ -99,9 +99,6 @@ if __name__ == "__main__":
         default="v2",
         help="Microturbulent velocity (only applies to tlusty grid)",
     )
-    parser.add_argument(
-        "--only_dat", help="only create the DAT files", action="store_true"
-    )
 
     args = parser.parse_args()
 
@@ -136,5 +133,5 @@ if __name__ == "__main__":
             output_filebase=basename,
             output_path="/home/kgordon/Python/extstar_data",
             model_params=model_params,
-            only_dat=args.only_dat,
+            specs=["IUE", "MIRI_LRS"],
         )
