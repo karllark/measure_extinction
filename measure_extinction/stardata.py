@@ -178,6 +178,12 @@ class BandData:
         _wise_band_zeromag_fluxes = np.array(
             [8.1787e-12, 2.415e-12, 6.5151e-14, 5.0901e-15]
         )
+
+        # JWST/MIRI bands
+        _miri_band_names = ["MIRI_FND"]
+        _miri_band_waves = np.array([12.9])
+        _miri_band_zeromag_fluxes = np.array([5.175e-14])
+
         # WFPC2 bands
         _wfpc2_band_names = [
             "WFPC2_F170W",
@@ -276,6 +282,7 @@ class BandData:
                 _johnson_band_names,
                 _spitzer_band_names,
                 _wise_band_names,
+                _miri_band_names,
                 _wfpc2_band_names,
                 _wfc3_band_names,
                 _acs_band_names,
@@ -286,6 +293,7 @@ class BandData:
                 _johnson_band_waves,
                 _spitzer_band_waves,
                 _wise_band_waves,
+                _miri_band_waves,
                 _wfpc2_band_waves,
                 _wfc3_band_waves,
                 _acs_band_waves,
@@ -296,6 +304,7 @@ class BandData:
                 _johnson_band_zeromag_fluxes,
                 _spitzer_band_zeromag_fluxes,
                 _wise_band_zeromag_fluxes,
+                _miri_band_zeromag_fluxes,
                 _wfpc2_band_zeromag_fluxes,
                 _wfc3_band_zeromag_fluxes,
                 _acs_band_zeromag_fluxes,
