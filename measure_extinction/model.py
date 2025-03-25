@@ -156,6 +156,8 @@ class MEModel(object):
                     fstr = "F"
                 else:
                     fstr = ""
+                if getattr(self, cname).prior is not None:
+                    fstr = f"{fstr}P"
                 hline += f"{cname} "
                 tline += f"{getattr(self, cname).value:.3f}{fstr} "
             print(f"{tline[:-1]} ({hline[:-1]})")
@@ -795,6 +797,17 @@ class MEModel(object):
         # setting up the walkers to start "near" the inital guess
         p = [p0 * (1 + 0.01 * np.random.normal(0, 1.0, ndim)) for k in range(nwalkers)]
 
+        # check the value so p to make sure they are within the bounds, set to bounds if not
+        for k, cp in enumerate(p):
+            for j, cname in enumerate(self.get_nonfixed_paramnames()):
+                param = getattr(self, cname)
+                pval = cp[j]
+                pbounds = param.bounds
+                if (pbounds[0] is not None) and (pval < pbounds[0]):
+                    param.value = pbounds[0]
+                elif (pbounds[1] is not None) and (pval > pbounds[1]):
+                    param.value = pbounds[1]
+
         if save_samples:
             # Don't forget to clear it in case the file already exists
             save_backend = emcee.backends.HDFBackend(save_samples)
@@ -946,7 +959,7 @@ class MEModel(object):
                 )
 
             # plot the residuals
-            gvals = (hi_ext_modsed[cspec] > 0.0)
+            gvals = hi_ext_modsed[cspec] > 0.0
             modspec = hi_ext_modsed[cspec][gvals] * self.norm.value
             diff = 100.0 * (obsdata.data[cspec].fluxes.value[gvals] - modspec) / modspec
             uncs = 100.0 * obsdata.data[cspec].uncs.value[gvals] / modspec
@@ -993,8 +1006,12 @@ class MEModel(object):
                     modinfo.waves[cspec] > 0.118 * u.micron,
                 )
                 if np.sum(gvals) > 0:
-                    gvals = np.logical_and(gvals, modinfo.waves[cspec] > 0.11 * u.micron)
-                    multval = self.norm.value * np.power(modinfo.waves[cspec][gvals], 4.0)
+                    gvals = np.logical_and(
+                        gvals, modinfo.waves[cspec] > 0.11 * u.micron
+                    )
+                    multval = self.norm.value * np.power(
+                        modinfo.waves[cspec][gvals], 4.0
+                    )
                     mflux = (hi_ext_modsed[cspec][gvals] * multval).value
                     tyrange = np.log10([np.nanmin(mflux), np.nanmax(mflux)])
                     yrange_lya[0] = np.min([tyrange[0], yrange_lya[0]])
