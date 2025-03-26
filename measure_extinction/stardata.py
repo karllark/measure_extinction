@@ -1198,7 +1198,9 @@ class StarData:
             "Z",
             "vturb",
             "logg",
+            "logg_unc",
             "Teff",
+            "Teff_unc",
             "velocity",
             "origin",
         ]

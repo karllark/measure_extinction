@@ -2,6 +2,7 @@ import copy
 import numpy as np
 import matplotlib.pyplot as plt
 import astropy.units as u
+from astropy.table import QTable
 import scipy.optimize as op
 
 import emcee
@@ -77,6 +78,11 @@ class MEModel(object):
     vel_exgal = MEParameter(value=0.0, bounds=(-300.0, 1000.0), fixed=True)  # km/s
     logHI_exgal = MEParameter(value=16.0, bounds=(16.0, 24.0), fixed=True)
 
+    # foreground MW dust parameters (when used, set based on HI and parameters fixed)
+    # used to account MW foreground dust extinction when measuring extinction in external galaxies
+    fore_Av = MEParameter(value=0.0, bounds=(0.0, 1.0), fixed=True)
+    fore_Rv = MEParameter(value=3.1, bounds=(2.3, 5.6), fixed=True)
+
     # normalization value (puts model at the same level as data)
     #   value is depends on the stellar radius and distance
     #   radius would require adding stellar evolutionary track info
@@ -146,7 +152,7 @@ class MEModel(object):
         pnames = [
             ["logTeff", "logg", "logZ", "vturb", "velocity", "windamp", "windalpha"],
             ["Av", "Rv", "C2", "B3", "C4", "xo", "gamma"],
-            ["vel_MW", "logHI_MW", "vel_exgal", "logHI_exgal"],
+            ["vel_MW", "logHI_MW", "fore_Av", "fore_Rv", "vel_exgal", "logHI_exgal"],
         ]
         for cnames in pnames:
             hline = ""
@@ -156,6 +162,8 @@ class MEModel(object):
                     fstr = "F"
                 else:
                     fstr = ""
+                if getattr(self, cname).prior is not None:
+                    fstr = f"{fstr}P"
                 hline += f"{cname} "
                 tline += f"{getattr(self, cname).value:.3f}{fstr} "
             print(f"{tline[:-1]} ({hline[:-1]})")
@@ -184,6 +192,43 @@ class MEModel(object):
             for ckey in self.logf.keys():
                 vals.append(self.logf[ckey].value)
         return np.array(vals)
+
+    def save_parameters(self, filename):
+        """
+        Save the parameters and uncertainties to a table.  Include if they were
+        fixed, their bounds, and their priors.
+
+        Parameters
+        ----------
+        filename : str
+            name of the file for the saved info
+        """
+        nparams = len(self.paramnames)
+        paramuncs = np.zeros(nparams)
+        paramfixed = np.zeros(nparams)
+        paramprior = np.zeros(nparams)
+        paramprior_val = np.zeros(nparams)
+        paramprior_unc = np.zeros(nparams)
+        for k, cname in enumerate(self.paramnames):
+            param = getattr(self, cname)
+            if param.unc is not None:
+                paramuncs[k] = param.unc
+            if param.fixed:
+                paramfixed[k] = 1.0
+            if param.prior is not None:
+                paramprior[k] = 1
+                paramprior_val[k] = param.prior[0]
+                paramprior_unc[k] = param.prior[1]
+
+        otab = QTable()
+        otab["name"] = self.paramnames
+        otab["value"] = self.parameters()
+        otab["unc"] = paramuncs
+        otab["fixed"] = paramfixed
+        otab["prior"] = paramprior
+        otab["prior_val"] = paramprior_val
+        otab["prior_unc"] = paramprior_unc
+        otab.write(filename, overwrite=True)
 
     def parameters_to_fit(self):
         """
@@ -318,7 +363,11 @@ class MEModel(object):
 
     def stellar_sed(self, moddata):
         """
-        Compute the stellar SED from the model parameters
+        Compute the stellar SED from the model parameters.
+
+        If foreground dust extinction included, then also includes the
+        foreground dust extinction.  Including this here results in extinction
+        curves that do not include the foreground extinction.
 
         Parameters
         ----------
@@ -350,6 +399,9 @@ class MEModel(object):
             weights = np.full(len(gsindxs), 1.0)
         weights /= np.sum(weights)
 
+        if self.fore_Av.value > 0.0:
+            g23mod = G23(Rv=self.fore_Rv.value)
+
         sed = {}
         for cspec in moddata.fluxes.keys():
             # dot product does the multiplication and sum
@@ -370,6 +422,10 @@ class MEModel(object):
                     np.power(cwaves, self.windalpha.value)
                     # - np.power(4.0, self.windalpha.value
                 )
+
+            if self.fore_Av.value > 0.0:
+                axav = g23mod(moddata.waves[cspec])
+                sed[cspec] = sed[cspec] * (10 ** (-0.4 * axav * self.fore_Av.value))
 
         return sed
 
@@ -795,6 +851,17 @@ class MEModel(object):
         # setting up the walkers to start "near" the inital guess
         p = [p0 * (1 + 0.01 * np.random.normal(0, 1.0, ndim)) for k in range(nwalkers)]
 
+        # check the value so p to make sure they are within the bounds, set to bounds if not
+        for k, cp in enumerate(p):
+            for j, cname in enumerate(self.get_nonfixed_paramnames()):
+                param = getattr(self, cname)
+                pval = cp[j]
+                pbounds = param.bounds
+                if (pbounds[0] is not None) and (pval < pbounds[0]):
+                    param.value = pbounds[0]
+                elif (pbounds[1] is not None) and (pval > pbounds[1]):
+                    param.value = pbounds[1]
+
         if save_samples:
             # Don't forget to clear it in case the file already exists
             save_backend = emcee.backends.HDFBackend(save_samples)
@@ -946,7 +1013,7 @@ class MEModel(object):
                 )
 
             # plot the residuals
-            gvals = (hi_ext_modsed[cspec] > 0.0)
+            gvals = hi_ext_modsed[cspec] > 0.0
             modspec = hi_ext_modsed[cspec][gvals] * self.norm.value
             diff = 100.0 * (obsdata.data[cspec].fluxes.value[gvals] - modspec) / modspec
             uncs = 100.0 * obsdata.data[cspec].uncs.value[gvals] / modspec
@@ -993,8 +1060,12 @@ class MEModel(object):
                     modinfo.waves[cspec] > 0.118 * u.micron,
                 )
                 if np.sum(gvals) > 0:
-                    gvals = np.logical_and(gvals, modinfo.waves[cspec] > 0.11 * u.micron)
-                    multval = self.norm.value * np.power(modinfo.waves[cspec][gvals], 4.0)
+                    gvals = np.logical_and(
+                        gvals, modinfo.waves[cspec] > 0.11 * u.micron
+                    )
+                    multval = self.norm.value * np.power(
+                        modinfo.waves[cspec][gvals], 4.0
+                    )
                     mflux = (hi_ext_modsed[cspec][gvals] * multval).value
                     tyrange = np.log10([np.nanmin(mflux), np.nanmax(mflux)])
                     yrange_lya[0] = np.min([tyrange[0], yrange_lya[0]])
