@@ -77,6 +77,11 @@ class MEModel(object):
     vel_exgal = MEParameter(value=0.0, bounds=(-300.0, 1000.0), fixed=True)  # km/s
     logHI_exgal = MEParameter(value=16.0, bounds=(16.0, 24.0), fixed=True)
 
+    # foreground MW dust parameters (when used, set based on HI and parameters fixed)
+    # used to account MW foreground dust extinction when measuring extinction in external galaxies
+    fore_Av = MEParameter(value=0.0, bounds=(0.0, 1.0), fixed=True)
+    fore_Rv = MEParameter(value=3.1, bounds=(2.3, 5.6), fixed=True)
+
     # normalization value (puts model at the same level as data)
     #   value is depends on the stellar radius and distance
     #   radius would require adding stellar evolutionary track info
@@ -146,7 +151,7 @@ class MEModel(object):
         pnames = [
             ["logTeff", "logg", "logZ", "vturb", "velocity", "windamp", "windalpha"],
             ["Av", "Rv", "C2", "B3", "C4", "xo", "gamma"],
-            ["vel_MW", "logHI_MW", "vel_exgal", "logHI_exgal"],
+            ["vel_MW", "logHI_MW", "fore_Av", "fore_Rv", "vel_exgal", "logHI_exgal"],
         ]
         for cnames in pnames:
             hline = ""
@@ -320,7 +325,11 @@ class MEModel(object):
 
     def stellar_sed(self, moddata):
         """
-        Compute the stellar SED from the model parameters
+        Compute the stellar SED from the model parameters.
+        
+        If foreground dust extinction included, then also includes the 
+        foreground dust extinction.  Including this here results in extinction
+        curves that do not include the foreground extinction.
 
         Parameters
         ----------
@@ -352,6 +361,9 @@ class MEModel(object):
             weights = np.full(len(gsindxs), 1.0)
         weights /= np.sum(weights)
 
+        if self.fore_Av.value > 0.0:
+            g23mod = G23(Rv=self.fore_Rv.value)
+
         sed = {}
         for cspec in moddata.fluxes.keys():
             # dot product does the multiplication and sum
@@ -372,6 +384,10 @@ class MEModel(object):
                     np.power(cwaves, self.windalpha.value)
                     # - np.power(4.0, self.windalpha.value
                 )
+
+            if self.fore_Av.value > 0.0:
+                axav = g23mod(moddata.waves[cspec])
+                sed[cspec] = sed[cspec] * (10 ** (-0.4 * axav * self.fore_Av.value))
 
         return sed
 
