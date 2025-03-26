@@ -2,6 +2,7 @@ import copy
 import numpy as np
 import matplotlib.pyplot as plt
 import astropy.units as u
+from astropy.table import QTable
 import scipy.optimize as op
 
 import emcee
@@ -192,6 +193,43 @@ class MEModel(object):
                 vals.append(self.logf[ckey].value)
         return np.array(vals)
 
+    def save_parameters(self, filename):
+        """
+        Save the parameters and uncertainties to a table.  Include if they were
+        fixed, their bounds, and their priors.
+
+        Parameters
+        ----------
+        filename : str
+            name of the file for the saved info
+        """
+        nparams = len(self.paramnames)
+        paramuncs = np.zeros(nparams)
+        paramfixed = np.zeros(nparams)
+        paramprior = np.zeros(nparams)
+        paramprior_val = np.zeros(nparams)
+        paramprior_unc = np.zeros(nparams)
+        for k, cname in enumerate(self.paramnames):
+            param = getattr(self, cname)
+            if param.unc is not None:
+                paramuncs[k] = param.unc
+            if param.fixed:
+                paramfixed[k] = 1.0
+            if param.prior is not None:
+                paramprior[k] = 1
+                paramprior_val[k] = param.prior[0]
+                paramprior_unc[k] = param.prior[1]
+
+        otab = QTable()
+        otab["name"] = self.paramnames
+        otab["value"] = self.parameters()
+        otab["unc"] = paramuncs
+        otab["fixed"] = paramfixed
+        otab["prior"] = paramprior
+        otab["prior_val"] = paramprior_val
+        otab["prior_unc"] = paramprior_unc
+        otab.write(filename, overwrite=True)
+
     def parameters_to_fit(self):
         """
         Give the non-fixed parameters values in a vector.  Needed for most fitters/samplers.
@@ -326,8 +364,8 @@ class MEModel(object):
     def stellar_sed(self, moddata):
         """
         Compute the stellar SED from the model parameters.
-        
-        If foreground dust extinction included, then also includes the 
+
+        If foreground dust extinction included, then also includes the
         foreground dust extinction.  Including this here results in extinction
         curves that do not include the foreground extinction.
 
