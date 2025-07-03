@@ -6,15 +6,19 @@ from collections import OrderedDict
 
 import numpy as np
 
-from astropy.table import Table
 from astropy import constants as const
 import astropy.units as u
-from astropy.units import UnitsWarning
 
 from dust_extinction.parameter_averages import CCM89
 from dust_extinction.shapes import _curve_F99_method
 
 from measure_extinction.merge_obsspec import _wavegrid
+from measure_extinction.helpers import (
+    fluxunit,
+    read_gen_spectra,
+    read_spex,
+    read_irs,
+)
 
 __all__ = ["StarData", "BandData", "SpecData"]
 
@@ -27,7 +31,47 @@ __all__ = ["StarData", "BandData", "SpecData"]
 # const = 1e-26*1e7*1e-4*1e-4 = 1e-27
 Jy_to_cgs_const = 1e-27 * const.c.to("micron/s").value
 
-fluxunit = u.erg / ((u.cm**2) * u.s * u.angstrom)
+spec_rinfo = {
+    "FUSE": read_gen_spectra,
+    "IUE": read_gen_spectra,
+    "STIS_Opt": read_gen_spectra,
+    "STIS": read_gen_spectra,
+    "WFC3_G102": read_gen_spectra,
+    "WFC3_G141": read_gen_spectra,
+    "SpeX_SXD": read_spex,
+    "SpeX_LXD": read_spex,
+    "NIRCAM_SS": read_gen_spectra,
+    "NIRISS_SOSS": read_gen_spectra,
+    "IRS": read_irs,
+    "MIRI_LRS": read_gen_spectra,
+    "MIRI_IFU": read_gen_spectra,
+    "MODEL_FULL_LOWRES": read_gen_spectra,
+    "MODEL_FULL": read_gen_spectra,
+}
+
+
+def _getspecfilename(line, path):
+    """
+    Get the full filename including path from the line in the dat file
+
+    Parameters
+    ----------
+    line : string
+        formated line from DAT file
+        example: 'IUE = hd029647_iue.fits'
+
+    path : string
+        path of the FITS file
+
+    Returns
+    -------
+    full_filename : str
+        full name of file including path
+    """
+    eqpos = line.find("=")
+    tfile = line[eqpos + 2 :].rstrip()
+
+    return f"{path}/{tfile}"
 
 
 class BandData:
@@ -595,30 +639,6 @@ class BandData:
         self.n_bands = len(self.bands)
 
 
-def _getspecfilename(line, path):
-    """
-    Get the full filename including path from the line in the dat file
-
-    Parameters
-    ----------
-    line : string
-        formated line from DAT file
-        example: 'IUE = hd029647_iue.fits'
-
-    path : string
-        path of the FITS file
-
-    Returns
-    -------
-    full_filename : str
-        full name of file including path
-    """
-    eqpos = line.find("=")
-    tfile = line[eqpos + 2 :].rstrip()
-
-    return f"{path}/{tfile}"
-
-
 class SpecData:
     """
     Spectroscopic data (used by StarData)
@@ -654,370 +674,6 @@ class SpecData:
         """
         self.type = type
         self.n_waves = 0
-
-    def read_spectra(self, line, path="./"):
-        """
-        Read spectra from a FITS file
-
-        FITS file has a binary table in the 1st extension
-        Header needs to have:
-
-        - wmin, wmax : min/max of wavelengths in file
-
-        Expected columns are:
-
-        - wave
-        - flux
-        - sigma [uncertainty in flux units]
-        - npts [number of observations include at this wavelength]
-
-        Parameters
-        ----------
-        line : string
-            formatted line from DAT file
-            example: 'IUE = hd029647_iue.fits'
-
-        path : string, optional
-            location of the FITS files path
-
-        Returns
-        -------
-        Updates self.(file, wave_range, waves, flux, uncs, npts, n_waves)
-        """
-        full_filename = _getspecfilename(line, path)
-
-        # open and read the spectrum
-        # ignore units warnings as non-standard units are explicitly handled a few lines later
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore", UnitsWarning)
-            tdata = Table.read(full_filename)
-
-        self.waves = tdata["WAVELENGTH"].quantity
-        self.fluxes = tdata["FLUX"].quantity
-        self.uncs = tdata["SIGMA"].quantity
-        self.npts = tdata["NPTS"].quantity
-        self.n_waves = len(self.waves)
-
-        # include the model if it exists
-        #   currently only used for FUSE H2 model
-        if "MODEL" in tdata.colnames:
-            self.model = tdata["MODEL"].quantity
-
-        # fix odd unit designations
-        if self.waves.unit == "ANGSTROM":
-            self.waves = self.waves.value * u.angstrom
-        if self.waves.unit == "MICRON":
-            self.waves = self.waves.value * u.micron
-        if self.fluxes.unit == "ERG/CM2/S/A":
-            self.fluxes = self.fluxes.value * (u.erg / ((u.cm**2) * u.s * u.angstrom))
-            self.uncs = self.uncs.value * (u.erg / ((u.cm**2) * u.s * u.angstrom))
-
-        # compute the min/max wavelengths
-        self.wave_range = (
-            np.array([min(self.waves.value), max(self.waves.value)]) * self.waves.unit
-        )
-
-        # trim any data that is not finite
-        (indxs,) = np.where(~np.isfinite(self.fluxes))
-        if len(indxs) > 0:
-            self.fluxes[indxs] = 0.0
-            self.npts[indxs] = 0
-
-        # convert wavelengths to microns (standardization)
-        self.waves = self.waves.to(u.micron)
-        self.wave_range = self.wave_range.to(u.micron)
-
-    def read_fuse(self, line, path="./"):
-        """
-        Read in FUSE spectra
-
-        Converts the wavelengths from Anstroms to microns
-
-        Parameters
-        ----------
-        line : string
-            formatted line from DAT file
-            example: 'STIS = hd029647_fuse.fits'
-
-        path : string, optional
-            location of the FITS files path
-
-        Returns
-        -------
-        Updates self.(file, wave_range, waves, flux, uncs, npts, n_waves)
-        """
-        self.read_spectra(line, path)
-
-    def read_iue(self, line, path="./"):
-        """
-        Read in IUE spectra
-
-        Removes data with wavelengths > 3200 A
-        Converts the wavelengths from Anstroms to microns
-
-        Parameters
-        ----------
-        line : string
-            formatted line from DAT file
-            example: 'IUE = hd029647_iue.fits'
-
-        path : string, optional
-            location of the FITS files path
-
-        Returns
-        -------
-        Updates self.(file, wave_range, waves, flux, uncs, npts, n_waves)
-        """
-        self.read_spectra(line, path)
-
-        # trim the long wavelength data by setting the npts to zero
-        (indxs,) = np.where(self.waves > 3200.0 * u.angstrom)
-        if len(indxs) > 0:
-            self.npts[indxs] = 0
-
-    def read_stis(self, line, path="./"):
-        """
-        Read in STIS spectra
-
-        Converts the wavelengths from Anstroms to microns
-
-        Parameters
-        ----------
-        line : string
-            formatted line from DAT file
-            example: 'STIS = hd029647_stis.fits' or 'STIS_Opt = hd029647_stis_Opt.fits'
-
-        path : string, optional
-            location of the FITS files path
-
-        Returns
-        -------
-        Updates self.(file, wave_range, waves, flux, uncs, npts, n_waves)
-        """
-        self.read_spectra(line, path)
-
-        # add units
-        self.fluxes = self.fluxes.value * (u.erg / ((u.cm**2) * u.s * u.angstrom))
-        self.uncs = self.uncs.value * (u.erg / ((u.cm**2) * u.s * u.angstrom))
-
-    def read_spex(self, line, path="./", use_corfac=True, corfac=None):
-        """
-        Read in SpeX spectra
-
-        Parameters
-        ----------
-        line : string
-            formatted line from DAT file
-            example: 'SpeX = hd029647_spex.fits'
-
-        path : string, optional
-            location of the FITS files path
-
-        corfac : dict of key: coefficients
-            keys identify the spectrum to be corrected and how
-
-        Returns
-        -------
-        Updates self.(file, wave_range, waves, flux, uncs, npts, n_waves)
-        """
-        self.read_spectra(line, path)
-
-        # determine which correction factor to use
-        if self.type == "SpeX_SXD":
-            if "SpeX_SXD" in corfac.keys():
-                corfac = corfac["SpeX_SXD"]
-            else:
-                corfac = None
-        else:
-            if "SpeX_LXD" in corfac.keys():
-                corfac = corfac["SpeX_LXD"]
-            else:
-                corfac = None
-
-        # correct the SpeX spectra if desired and if the correction factor is defined
-        if use_corfac and corfac is not None:
-            self.fluxes *= corfac
-            self.uncs *= corfac
-
-        # add units
-        self.fluxes = self.fluxes.value * (u.erg / ((u.cm**2) * u.s * u.angstrom))
-        self.uncs = self.uncs.value * (u.erg / ((u.cm**2) * u.s * u.angstrom))
-
-    def read_irs(self, line, path="./", use_corfac=True, corfac=None):
-        """
-        Read in Spitzer/IRS spectra
-
-        Correct the IRS spectra if the appropriate corfacs are present
-        in the DAT file.
-        Does a multiplicative correction that can include a linear
-        term if corfac_irs_zerowave and corfac_irs_slope factors are present.
-        Otherwise, just apply a multiplicative factor based on corfac_irs.
-
-        Parameters
-        ----------
-        line : string
-            formatted line from DAT file
-            example: 'IRS = hd029647_irs.fits'
-
-        path : string, optional
-            location of the FITS files path
-
-        corfac : dict of key: coefficients
-            keys identify the spectrum to be corrected and how
-
-        Returns
-        -------
-        Updates self.(file, wave_range, waves, flux, uncs, npts, n_waves)
-        """
-        self.read_spectra(line, path)
-
-        # standardization
-        # mfac = Jy_to_cgs_const/np.square(self.waves)
-        # self.fluxes *= mfac
-        # self.uncs *= mfac
-
-        # correct the IRS spectra if desired and if corfacs are defined
-        if use_corfac and "IRS" in corfac.keys():
-            if ("IRS_zerowave" in corfac.keys()) and ("IRS_slope" in corfac.keys()):
-                mod_line = corfac["IRS"] + (
-                    corfac["IRS_slope"] * (self.waves.value - corfac["IRS_zerowave"])
-                )
-                self.fluxes *= mod_line
-                self.uncs *= mod_line
-            else:
-                self.fluxes *= corfac["IRS"]
-                self.uncs *= corfac["IRS"]
-
-        # remove bad long wavelength IRS data if keyword set
-        if "IRS_maxwave" in corfac.keys():
-            (indxs,) = np.where(self.waves.value > corfac["IRS_maxwave"])
-            if len(indxs) > 0:
-                self.npts[indxs] = 0
-
-        self.fluxes = self.fluxes.to(
-            fluxunit, equivalencies=u.spectral_density(self.waves)
-        )
-        self.uncs = self.uncs.to(fluxunit, equivalencies=u.spectral_density(self.waves))
-
-    def read_nircam_ss(self, line, path="./"):
-        """
-        Read in Webb/NIRCam slitless spectra
-
-        Parameters
-        ----------
-        line : string
-            formatted line from DAT file
-            example: 'NIRCam_SS = hd029647_nircam_ss.fits'
-
-        path : string, optional
-            location of the FITS files path
-
-        Returns
-        -------
-        Updates self.(file, wave_range, waves, flux, uncs, npts, n_waves)
-        """
-        self.read_spectra(line, path)
-
-        self.fluxes = self.fluxes.to(
-            fluxunit, equivalencies=u.spectral_density(self.waves)
-        )
-        self.uncs = self.uncs.to(fluxunit, equivalencies=u.spectral_density(self.waves))
-
-    def read_niriss_soss(self, line, path="./"):
-        """
-        Read in Webb/NIRISS single object slitless spectra
-
-        Parameters
-        ----------
-        line : string
-            formatted line from DAT file
-            example: 'NIRISS_SOSS = hd029647_niriss_soss.fits'
-
-        path : string, optional
-            location of the FITS files path
-
-        Returns
-        -------
-        Updates self.(file, wave_range, waves, flux, uncs, npts, n_waves)
-        """
-        self.read_spectra(line, path)
-
-        self.fluxes = self.fluxes.to(
-            fluxunit, equivalencies=u.spectral_density(self.waves)
-        )
-        self.uncs = self.uncs.to(fluxunit, equivalencies=u.spectral_density(self.waves))
-
-    def read_miri_lrs(self, line, path="./"):
-        """
-        Read in Webb/MIRI LRS spectra
-
-        Parameters
-        ----------
-        line : string
-            formatted line from DAT file
-            example: 'MIRI_LRS = hd029647_miri_lrs.fits'
-
-        path : string, optional
-            location of the FITS files path
-
-        Returns
-        -------
-        Updates self.(file, wave_range, waves, flux, uncs, npts, n_waves)
-        """
-        self.read_spectra(line, path)
-
-        self.fluxes = self.fluxes.to(
-            fluxunit, equivalencies=u.spectral_density(self.waves)
-        )
-        self.uncs = self.uncs.to(fluxunit, equivalencies=u.spectral_density(self.waves))
-
-    def read_miri_ifu(self, line, path="./"):
-        """
-        Read in Webb/MRS IFU spectra
-
-        Parameters
-        ----------
-        line : string
-            formatted line from DAT file
-            example: 'MIRI_IFU = hd029647_miri_ifu.fits'
-
-        path : string, optional
-            location of the FITS files path
-
-        Returns
-        -------
-        Updates self.(file, wave_range, waves, flux, uncs, npts, n_waves)
-        """
-        self.read_spectra(line, path)
-
-        self.fluxes = self.fluxes.to(
-            fluxunit, equivalencies=u.spectral_density(self.waves)
-        )
-        self.uncs = self.uncs.to(fluxunit, equivalencies=u.spectral_density(self.waves))
-
-    def read_model_full(self, line, path="./"):
-        """
-        Read in full model spectra (only available for model spectra)
-
-        Parameters
-        ----------
-        line : string
-            formatted line from DAT file
-            example: 'MODEL_FULL = tlusty_z200t55000g475v10_full.fits'
-
-        path : string, optional
-            location of the FITS files path
-
-        Returns
-        -------
-        Updates self.(file, wave_range, waves, flux, uncs, npts, n_waves)
-        """
-        self.read_spectra(line, path)
-
-        self.fluxes = self.fluxes.to(
-            fluxunit, equivalencies=u.spectral_density(self.waves)
-        )
-        self.uncs = self.uncs.to(fluxunit, equivalencies=u.spectral_density(self.waves))
 
     def rebin_constres(self, waverange, resolution):
         """
@@ -1238,160 +894,27 @@ class StarData:
         # read the spectra
         if not self.photonly:
             for line in self.datfile_lines:
-                if line[0] == "#":
+                if (line[0] == "#") or ("IRS15" in line):
                     pass
-                elif line.startswith("IUE") and (
-                    "IUE" in only_data or only_data == "ALL"
-                ):
-                    fname = _getspecfilename(line, self.path)
-                    if os.path.isfile(fname):
-                        self.data["IUE"] = SpecData("IUE")
-                        self.data["IUE"].read_iue(line, path=self.path)
-                    else:
-                        warnings.warn(f"{fname} does not exist", UserWarning)
-                elif line.startswith("FUSE") and (
-                    "FUSE" in only_data or only_data == "ALL"
-                ):
-                    fname = _getspecfilename(line, self.path)
-                    if os.path.isfile(fname):
-                        self.data["FUSE"] = SpecData("FUSE")
-                        self.data["FUSE"].read_fuse(line, path=self.path)
-                    else:
-                        warnings.warn(f"{fname} does not exist", UserWarning)
-                elif line.startswith("STIS_Opt") and (
-                    "STIS_Opt" in only_data or only_data == "ALL"
-                ):
-                    fname = _getspecfilename(line, self.path)
-                    if os.path.isfile(fname):
-                        self.data["STIS_Opt"] = SpecData("STIS_Opt")
-                        self.data["STIS_Opt"].read_stis(line, path=self.path)
-                    else:
-                        warnings.warn(f"{fname} does not exist", UserWarning)
-                elif line.startswith("STIS") and (
-                    "STIS" in only_data or only_data == "ALL"
-                ):
-                    fname = _getspecfilename(line, self.path)
-                    if os.path.isfile(fname):
-                        self.data["STIS"] = SpecData("STIS")
-                        self.data["STIS"].read_stis(line, path=self.path)
-                    else:
-                        warnings.warn(f"{fname} does not exist", UserWarning)
-                elif line.startswith("SpeX_SXD") and (
-                    "SpeX_SXD" in only_data or only_data == "ALL"
-                ):
-                    fname = _getspecfilename(line, self.path)
-                    if os.path.isfile(fname):
-                        self.data["SpeX_SXD"] = SpecData("SpeX_SXD")
-                        self.data["SpeX_SXD"].read_spex(
-                            line,
-                            path=self.path,
-                            use_corfac=self.use_corfac,
-                            corfac=self.corfac,
-                        )
-                    else:
-                        warnings.warn(f"{fname} does not exist", UserWarning)
-                elif line.startswith("SpeX_LXD") and (
-                    "SpeX_LXD" in only_data or only_data == "ALL"
-                ):
-                    fname = _getspecfilename(line, self.path)
-                    if os.path.isfile(fname):
-                        self.data["SpeX_LXD"] = SpecData("SpeX_LXD")
-                        self.data["SpeX_LXD"].read_spex(
-                            line,
-                            path=self.path,
-                            use_corfac=self.use_corfac,
-                            corfac=self.corfac,
-                        )
-                    else:
-                        warnings.warn(f"{fname} does not exist", UserWarning)
-                elif (
-                    line.startswith("IRS")
-                    and "IRS15" not in line
-                    and ("IRS" in only_data or only_data == "ALL")
-                ):
-                    fname = _getspecfilename(line, self.path)
-                    if os.path.isfile(fname):
-                        self.data["IRS"] = SpecData("IRS")
-                        self.data["IRS"].read_irs(
-                            line,
-                            path=self.path,
-                            use_corfac=self.use_corfac,
-                            corfac=self.corfac,
-                        )
-                    else:
-                        warnings.warn(f"{fname} does not exist", UserWarning)
-                elif line.startswith("NIRISS_SOSS") and (
-                    "NIRISS_SOSS" in only_data or only_data == "ALL"
-                ):
-                    fname = _getspecfilename(line, self.path)
-                    if os.path.isfile(fname):
-                        self.data["NIRISS_SOSS"] = SpecData("NIRISS_SOSS")
-                        self.data["NIRISS_SOSS"].read_niriss_soss(
-                            line,
-                            path=self.path,
-                        )
-                    else:
-                        warnings.warn(f"{fname} does not exist", UserWarning)
-                elif line.startswith("NIRCam_SS") and (
-                    "NIRCam_SS" in only_data or only_data == "ALL"
-                ):
-                    fname = _getspecfilename(line, self.path)
-                    if os.path.isfile(fname):
-                        self.data["NIRCam_SS"] = SpecData("NIRCam_SS")
-                        self.data["NIRCam_SS"].read_miri_ifu(
-                            line,
-                            path=self.path,
-                        )
-                    else:
-                        warnings.warn(f"{fname} does not exist", UserWarning)
-                elif line.startswith("MIRI_LRS") and (
-                    "MIRI_LRS" in only_data or only_data == "ALL"
-                ):
-                    fname = _getspecfilename(line, self.path)
-                    if os.path.isfile(fname):
-                        self.data["MIRI_LRS"] = SpecData("MIRI_LRS")
-                        self.data["MIRI_LRS"].read_miri_lrs(
-                            line,
-                            path=self.path,
-                        )
-                    else:
-                        warnings.warn(f"{fname} does not exist", UserWarning)
-                elif line.startswith("MIRI_IFU") and (
-                    "MIRI_IFU" in only_data or only_data == "ALL"
-                ):
-                    fname = _getspecfilename(line, self.path)
-                    if os.path.isfile(fname):
-                        self.data["MIRI_IFU"] = SpecData("MIRI_IFU")
-                        self.data["MIRI_IFU"].read_miri_ifu(
-                            line,
-                            path=self.path,
-                        )
-                    else:
-                        warnings.warn(f"{fname} does not exist", UserWarning)
-                elif line.startswith("MODEL_FULL_LOWRES") and (
-                    "MODEL_FULL_LOWRES" in only_data or only_data == "ALL"
-                ):
-                    fname = _getspecfilename(line, self.path)
-                    if os.path.isfile(fname):
-                        self.data["MODEL_FULL_LOWRES"] = SpecData("MODEL_FULL_LOWRES")
-                        self.data["MODEL_FULL_LOWRES"].read_model_full(
-                            line,
-                            path=self.path,
-                        )
-                    else:
-                        warnings.warn(f"{fname} does not exist", UserWarning)
-                elif line.startswith("MODEL_FULL") and (
-                    "MODEL_FULL" in only_data or only_data == "ALL"
-                ):
-                    fname = _getspecfilename(line, self.path)
-                    if os.path.isfile(fname):
-                        self.data["MODEL_FULL"] = SpecData("MODEL_FULL")
-                        self.data["MODEL_FULL"].read_model_full(
-                            line,
-                            path=self.path,
-                        )
-                    else:
-                        warnings.warn(f"{fname} does not exist", UserWarning)
+                else:
+                    for cspec in spec_rinfo.keys():
+                        if line.upper().startswith(cspec.upper()) and (
+                            cspec in only_data or only_data == "ALL"
+                        ):
+                            print(f"found {cspec}")
+                            fname = _getspecfilename(line, self.path)
+                            if os.path.isfile(fname):
+                                self.data[cspec] = SpecData(cspec)
+                                spec_rinfo[cspec](
+                                    self.data[cspec],
+                                    fname,
+                                    use_corfac=self.use_corfac,
+                                    corfac=self.corfac,
+                                )
+                            else:
+                                warnings.warn(f"{fname} does not exist", UserWarning)
+                                exit()
+                            break
 
         # if desired and the necessary dereddening parameters are present
         if deredden:
