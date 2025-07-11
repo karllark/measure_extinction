@@ -17,7 +17,7 @@ def get_full_starfile(starname):
         # not an installable package yet
         # def_path = pkg_resources.resource_filename(
         #    'extstar_data', '')
-        def_path = "/home/kgordon/Python/extstar_data/"
+        def_path = "/Users/pyanchulova/Documents/extstar_data/"
         if not os.path.isfile("{}/DAT_files/{}".format(def_path, fstarname)):
             print("{} file not found".format(fstarname))
         else:

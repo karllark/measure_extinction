@@ -211,6 +211,7 @@ class BandData:
 
         # WFC3 bands - updated for 2020 solutions  Assuming UVIS1
         _wfc3_band_names = [
+            "WFC3_F225W",
             "WFC3_F275W",
             "WFC3_F336W",
             "WFC3_F475W",
@@ -223,6 +224,7 @@ class BandData:
         # from Calamida et al. 2022 (Amp C)
         _wfc3_band_waves = np.array(
             [
+                0.235839,
                 0.270330,
                 0.335465,
                 0.477217,
@@ -236,6 +238,7 @@ class BandData:
 
         _wfc3_photflam = np.array(
             [
+                4.585e-18,
                 3.223e-18,
                 1.286e-18,
                 2.498e-19,
@@ -247,7 +250,7 @@ class BandData:
             ]
         )
         _wfc3_vegamag = np.array(
-            [22.676, 23.526, 25.809, 25.374, 24.84, 24.712, 26.063, 24.695]
+            [22.426, 22.676, 23.526, 25.809, 25.374, 24.84, 24.712, 26.063, 24.695]
         )
         _n_wfc3_bands = len(_wfc3_vegamag)
         _wfc3_band_zeromag_fluxes = np.zeros(_n_wfc3_bands)
