@@ -1,4 +1,3 @@
-import os
 import importlib.resources as importlib_resources
 
 __all__ = ["get_datapath"]
