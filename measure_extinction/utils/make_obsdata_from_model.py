@@ -1,3 +1,4 @@
+import argparse
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.interpolate import interp1d
@@ -398,9 +399,15 @@ def make_obsdata_from_model(
 
     stis_uv_file = "%s_stis_uv.fits" % (output_filebase)
     stis_opt_file = "%s_stis_opt.fits" % (output_filebase)
+    stis_g140l_file = stis_uv_file.replace("uv", "g140l")
+    stis_g230l_file = stis_uv_file.replace("uv", "g230l")
+    stis_g430l_file = stis_uv_file.replace("uv", "g430l")
+    stis_g750l_file = stis_uv_file.replace("uv", "g750l")
     if (specs is not None) and ("STIS" in specs):
         # create the ultraviolet HST/STIS mock observation
         stis_table = mock_stis_data(otable)
+
+        # merged versions
         # UV STIS obs
         rb_stis_uv = merge_stis_obsspec(stis_table[0:2], waveregion="UV")
         rb_stis_uv["SIGMA"] = rb_stis_uv["FLUX"] * 0.0
@@ -410,8 +417,30 @@ def make_obsdata_from_model(
         rb_stis_opt["SIGMA"] = rb_stis_opt["FLUX"] * 0.0
         rb_stis_opt.write("%s/Models/%s" % (output_path, stis_opt_file), overwrite=True)
 
+        # individual grating versions
+        # UV G140L
+        rb_stis_uv_g140l = merge_stis_obsspec([stis_table[0]], waveregion="UV")
+        rb_stis_uv_g140l["SIGMA"] = rb_stis_uv_g140l["FLUX"] * 0.0
+        rb_stis_uv_g140l.write("%s/Models/%s" % (output_path, stis_g140l_file), overwrite=True)
+        # UV G230L
+        rb_stis_uv_g230l = merge_stis_obsspec([stis_table[1]], waveregion="UV")
+        rb_stis_uv_g230l["SIGMA"] = rb_stis_uv_g230l["FLUX"] * 0.0
+        rb_stis_uv_g230l.write("%s/Models/%s" % (output_path, stis_g230l_file), overwrite=True)
+        # Opt G430L
+        rb_stis_uv_g430l = merge_stis_obsspec([stis_table[2]], waveregion="Opt")
+        rb_stis_uv_g430l["SIGMA"] = rb_stis_uv_g430l["FLUX"] * 0.0
+        rb_stis_uv_g430l.write("%s/Models/%s" % (output_path, stis_g430l_file), overwrite=True)
+        # Opt G750L
+        rb_stis_uv_g750l = merge_stis_obsspec([stis_table[3]], waveregion="Opt")
+        rb_stis_uv_g750l["SIGMA"] = rb_stis_uv_g750l["FLUX"] * 0.0
+        rb_stis_uv_g750l.write("%s/Models/%s" % (output_path, stis_g750l_file), overwrite=True)
+
     specinfo["STIS"] = stis_uv_file
     specinfo["STIS_Opt"] = stis_opt_file
+    specinfo["STIS_G140L"] = stis_g140l_file
+    specinfo["STIS_G230L"] = stis_g230l_file
+    specinfo["STIS_G430L"] = stis_g430l_file
+    specinfo["STIS_G750L"] = stis_g750l_file
 
     if show_plot:
         fig, ax = plt.subplots(figsize=(10, 8))
@@ -439,11 +468,9 @@ def make_obsdata_from_model(
             )
 
     for cspec in obsspecinfo.keys():
-        print(cspec)
         cres = obsspecinfo[cspec][0]
         ofile = f"{output_filebase}_{cspec}.fits"
         if (specs is not None) and (cspec.upper() in specs):
-            print("working on")
             fwhm_pix = rbres / cres
             g = Gaussian1DKernel(stddev=fwhm_pix / 2.355)
             nflux = convolve(otable["FLUX"].data, g)
@@ -495,9 +522,22 @@ def make_obsdata_from_model(
 
 
 if __name__ == "__main__":
+    # commandline parser
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--cont", help="use the continuum only", action="store_true")
+    args = parser.parse_args()
+
+    if args.cont:
+        ftype = "cont"
+        extstr = "_cont"
+    else:
+        ftype = "spec"
+        extstr = ""
+
     mname = (
-        "/home/kgordon/Python/extstar_data/Models/Tlusty_2023/z100t30000g400v2.spec.gz"
+        f"/home/kgordon/Python/extstar_data/Models/Tlusty_2025/z100t30000g400v2.{ftype}.gz"
     )
+
     model_params = {}
     model_params["origin"] = "tlusty"
     model_params["Teff"] = 30000.0
@@ -507,7 +547,7 @@ if __name__ == "__main__":
     make_obsdata_from_model(
         mname,
         model_type="tlusty",
-        output_filebase="z100t30000g400v2",
+        output_filebase=f"z100t30000g400v2{extstr}",
         output_path="/home/kgordon/Python/extstar_data",
         model_params=model_params,
         show_plot=True,

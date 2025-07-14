@@ -34,6 +34,10 @@ Jy_to_cgs_const = 1e-27 * const.c.to("micron/s").value
 spec_rinfo = {
     "FUSE": read_gen_spectra,
     "IUE": read_gen_spectra,
+    "STIS_G140L": read_gen_spectra,
+    "STIS_G230L": read_gen_spectra,
+    "STIS_G430L": read_gen_spectra,
+    "STIS_G750L": read_gen_spectra,
     "STIS_Opt": read_gen_spectra,
     "STIS": read_gen_spectra,
     "WFC3_G102": read_gen_spectra,
@@ -904,7 +908,6 @@ class StarData:
                         if line.upper().startswith(cspec.upper()) and (
                             cspec in only_data or only_data == "ALL"
                         ):
-                            print(f"found {cspec}")
                             fname = _getspecfilename(line, self.path)
                             if os.path.isfile(fname):
                                 self.data[cspec] = SpecData(cspec)
