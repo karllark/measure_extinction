@@ -1,0 +1,8 @@
+
+python make_all_tlusty_obsdata.py --vturb v2 >& make_tlusty_all_v2_spec.log &
+python make_all_tlusty_obsdata.py --vturb v5 >& make_tlusty_all_v5_spec.log &
+python make_all_tlusty_obsdata.py --vturb v10 >& make_tlusty_all_v10_spec.log &
+
+python make_all_tlusty_obsdata.py --vturb v2 --cont >& make_tlusty_all_v2_cont.log &
+python make_all_tlusty_obsdata.py --vturb v5 --cont >& make_tlusty_all_v5_cont.log &
+python make_all_tlusty_obsdata.py --vturb v10 --cont >& make_tlusty_all_v10_cont.log &
