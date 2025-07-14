@@ -399,10 +399,10 @@ def make_obsdata_from_model(
 
     stis_uv_file = "%s_stis_uv.fits" % (output_filebase)
     stis_opt_file = "%s_stis_opt.fits" % (output_filebase)
-    stis_uv_g140l_file = stis_uv_file.replace("uv", "g140l")
-    stis_uv_g230l_file = stis_uv_file.replace("uv", "g230l")
-    stis_uv_g430l_file = stis_uv_file.replace("uv", "g430l")
-    stis_uv_g750l_file = stis_uv_file.replace("uv", "g750l")
+    stis_g140l_file = stis_uv_file.replace("uv", "g140l")
+    stis_g230l_file = stis_uv_file.replace("uv", "g230l")
+    stis_g430l_file = stis_uv_file.replace("uv", "g430l")
+    stis_g750l_file = stis_uv_file.replace("uv", "g750l")
     if (specs is not None) and ("STIS" in specs):
         # create the ultraviolet HST/STIS mock observation
         stis_table = mock_stis_data(otable)
@@ -421,26 +421,26 @@ def make_obsdata_from_model(
         # UV G140L
         rb_stis_uv_g140l = merge_stis_obsspec([stis_table[0]], waveregion="UV")
         rb_stis_uv_g140l["SIGMA"] = rb_stis_uv_g140l["FLUX"] * 0.0
-        rb_stis_uv_g140l.write("%s/Models/%s" % (output_path, stis_uv_g140l_file), overwrite=True)
+        rb_stis_uv_g140l.write("%s/Models/%s" % (output_path, stis_g140l_file), overwrite=True)
         # UV G230L
         rb_stis_uv_g230l = merge_stis_obsspec([stis_table[1]], waveregion="UV")
         rb_stis_uv_g230l["SIGMA"] = rb_stis_uv_g230l["FLUX"] * 0.0
-        rb_stis_uv_g230l.write("%s/Models/%s" % (output_path, stis_uv_g230l_file), overwrite=True)
+        rb_stis_uv_g230l.write("%s/Models/%s" % (output_path, stis_g230l_file), overwrite=True)
         # Opt G430L
         rb_stis_uv_g430l = merge_stis_obsspec([stis_table[2]], waveregion="Opt")
         rb_stis_uv_g430l["SIGMA"] = rb_stis_uv_g430l["FLUX"] * 0.0
-        rb_stis_uv_g430l.write("%s/Models/%s" % (output_path, stis_uv_g430l_file), overwrite=True)
+        rb_stis_uv_g430l.write("%s/Models/%s" % (output_path, stis_g430l_file), overwrite=True)
         # Opt G750L
         rb_stis_uv_g750l = merge_stis_obsspec([stis_table[3]], waveregion="Opt")
         rb_stis_uv_g750l["SIGMA"] = rb_stis_uv_g750l["FLUX"] * 0.0
-        rb_stis_uv_g750l.write("%s/Models/%s" % (output_path, stis_uv_g750l_file), overwrite=True)
+        rb_stis_uv_g750l.write("%s/Models/%s" % (output_path, stis_g750l_file), overwrite=True)
 
     specinfo["STIS"] = stis_uv_file
     specinfo["STIS_Opt"] = stis_opt_file
-    specinfo["STIS_G140L"] = stis_uv_g140l_file
-    specinfo["STIS_G230L"] = stis_uv_g230l_file
-    specinfo["STIS_G430L"] = stis_uv_g430l_file
-    specinfo["STIS_G750L"] = stis_uv_g750l_file
+    specinfo["STIS_G140L"] = stis_g140l_file
+    specinfo["STIS_G230L"] = stis_g230l_file
+    specinfo["STIS_G430L"] = stis_g430l_file
+    specinfo["STIS_G750L"] = stis_g750l_file
 
     if show_plot:
         fig, ax = plt.subplots(figsize=(10, 8))
