@@ -536,7 +536,7 @@ if __name__ == "__main__":
 
     mname = (
         f"/home/kgordon/Python/extstar_data/Models/Tlusty_2025/z100t30000g400v2.{ftype}.gz"
-    )   
+    )
 
     model_params = {}
     model_params["origin"] = "tlusty"
