@@ -227,10 +227,18 @@ class BandData:
             [8.1787e-12, 2.415e-12, 6.5151e-14, 5.0901e-15]
         )
 
-        # JWST/MIRI bands
-        _miri_band_names = ["MIRI_FND"]
-        _miri_band_waves = np.array([12.9])
-        _miri_band_zeromag_fluxes = np.array([5.175e-14])
+        # fmt: off
+        # JWST/MIRI bands from Gordon et al. (2025)
+        _miri_band_names = ["MIRI_F560W", "MIRI_F770W", "MIRI_F1000W", "MIRI_F1130W",
+                            "MIRI_F1280W", "MIRI_FND", "MIRI_F1500W", "MIRI_F1800W",
+                            "MIRI_F2100W", "MIRI_F2550W"]
+        _miri_band_waves = np.array([5.635, 7.639, 9.953, 11.309,
+                                     12.810, 12.9, 15.064, 17.984,
+                                     20.795, 25.365])
+        _miri_band_zeromag_fluxes = np.array([1.090e-12, 3.340e-13, 1.162e-13, 6.924e-14,
+                                              4.269e-14, 5.175e-14, 2.249e-14, 1.103e-14,
+                                              6.227e-15, 2.802e-15])
+        # fmt: on
 
         # WFPC2 bands
         _wfpc2_band_names = [
