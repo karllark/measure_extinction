@@ -1198,7 +1198,11 @@ class MEModel(object):
         ax.set_ylim(yrange)
 
         if lyaplot:
-            axes[2].set_ylim(0.0, 10 ** yrange_lya[1])
+            if np.isfinite(yrange_lya[1]):
+                maxr = 10 ** yrange_lya[1]
+            else:
+                maxr = 1.0
+            axes[2].set_ylim(0.0, maxr)
             axes[2].set_xlim(0.115, 0.13)
             axes[3].set_xlim(0.115, 0.13)
             axes[3].set_ylim(-1.0 * resid_range, resid_range)
