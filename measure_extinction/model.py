@@ -653,6 +653,7 @@ class MEModel(object):
         norm_dat = []
         norm_npts = []
         for cspec in obsdata.data.keys():
+            print(cspec)
             gvals = (self.weights[cspec] > 0) & (np.isfinite(hi_ext_modsed[cspec]))
             norm_npts.append(np.sum(gvals))
             norm_mod.append(np.average(hi_ext_modsed[cspec][gvals]))
