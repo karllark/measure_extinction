@@ -1175,10 +1175,7 @@ class MEModel(object):
                     gvals = np.logical_and(gvals, cwaves > 0.11 * u.micron)
                     multval = self.norm.value * np.power(cwaves[gvals], 4.0)
                     mflux = (hi_ext_modsed[cspec][gvals] * multval).value
-                    gvals = np.isfinite(mflux)
-                    tyrange = np.log10(
-                        [np.nanmin(mflux[gvals]), np.nanmax(mflux[gvals])]
-                    )
+                    tyrange = np.log10([np.nanmin(mflux), np.nanmax(mflux)])
                     yrange_lya[0] = np.min([tyrange[0], yrange_lya[0]])
                     yrange_lya[1] = np.max([tyrange[1], yrange_lya[1]])
 
