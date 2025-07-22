@@ -1171,7 +1171,7 @@ class MEModel(object):
                     cwaves > 0.118 * u.micron,
                 )
                 if np.sum(gvals) > 0:
-                    print(cspec)
+                    print(cspec, multval)
                     gvals = np.logical_and(gvals, cwaves > 0.11 * u.micron)
                     multval = self.norm.value * np.power(cwaves[gvals], 4.0)
                     mflux = (hi_ext_modsed[cspec][gvals] * multval).value
