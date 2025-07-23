@@ -1170,6 +1170,7 @@ class MEModel(object):
                     cwaves < 0.140 * u.micron,
                     cwaves > 0.118 * u.micron,
                 )
+                gvals = np.logical_and(gvals, np.isfinite(hi_ext_modsed[cspec]))
                 if np.sum(gvals) > 0:
                     gvals = np.logical_and(gvals, cwaves > 0.11 * u.micron)
                     multval = self.norm.value * np.power(cwaves[gvals], 4.0)
@@ -1197,7 +1198,11 @@ class MEModel(object):
         ax.set_ylim(yrange)
 
         if lyaplot:
-            axes[2].set_ylim(0.0, 10 ** yrange_lya[1])
+            if np.isfinite(yrange_lya[1]):
+                maxr = 10 ** yrange_lya[1]
+            else:
+                maxr = 1.0
+            axes[2].set_ylim(0.0, maxr)
             axes[2].set_xlim(0.115, 0.13)
             axes[3].set_xlim(0.115, 0.13)
             axes[3].set_ylim(-1.0 * resid_range, resid_range)
