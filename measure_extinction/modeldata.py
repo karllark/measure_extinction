@@ -166,6 +166,7 @@ class ModelData(object):
                                     or ("IRAC" in cband)
                                     or ("MIPS" in cband)
                                     or ("IRS" in cband)
+                                    or ("MIRI" in cband)
                                 ):
                                     estr = ""
                                 else:
