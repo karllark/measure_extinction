@@ -311,6 +311,7 @@ def make_obsdata_from_model(
     john_bands = ["U", "B", "V", "R", "I", "J", "H", "K"]
     john_fnames = [f"John{cband}.dat" for cband in john_bands]
     hst_bands = [
+        "HST_WFC3_UVIS1_F225W",
         "HST_WFC3_UVIS1_F275W",
         "HST_WFC3_UVIS1_F336W",
         "HST_WFC3_UVIS1_F475W",
@@ -331,7 +332,8 @@ def make_obsdata_from_model(
     hst_fnames = [""]
     # fmt: off
     ir_bands = ['IRAC1', 'IRAC2', 'IRAC3', 'IRAC4', 'IRS15', 'MIPS24',
-                'WISE1', 'WISE2', 'WISE3', 'WISE4']
+                'WISE1', 'WISE2', 'WISE3', 'WISE4',
+                "MIRI_F560W", "MIRI_F1000W", "MIRI_F1500W", "MIRI_FND"]
     # fmt: on
     ir_fnames = [f"{cband}.dat" for cband in ir_bands]
     bands = john_bands + ir_bands + hst_bands
