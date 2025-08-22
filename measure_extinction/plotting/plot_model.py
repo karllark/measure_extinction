@@ -19,7 +19,7 @@ def main():
         default="bestfit",
     )
     parser.add_argument(
-        "--residrange", help="residual range in percentage", default=50.0, type=float
+        "--residrange", help="residual range in percentage", default=10.0, type=float
     )
     parser.add_argument("--burnfrac", help="burn fraction", default=0.5, type=float)
     parser.add_argument(

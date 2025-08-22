@@ -344,7 +344,7 @@ def make_obsdata_from_model(
 
     # rebin to R=100 for speed of reddened photometry calculation
     #   use a wavelength range that spans FUSE to Spitzer IRS
-    rbres_lowres = 100.0
+    rbres_lowres = 500.0
     wave_rebin_lowres, flux_rebin_lowres, npts_rebin_lowres = rebin_spectrum(
         mwave.value, mflux.value, rbres_lowres, [912.0, 310000.0]
     )
