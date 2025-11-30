@@ -35,14 +35,16 @@ if __name__ == "__main__":
     # read in the correction factors to put everything on the HST flux calibration scale
     # from Bohlin & Bianchi 2018, AJ, 155, 162
     dpath = get_datapath()
-    lcor = QTable.read(f"{dpath}/hlsp_iue-fluxcal_iue_lwp-lwr_cal_low-disp_v1_corr.txt",
-                       format="ascii")
+    lcor = QTable.read(
+        f"{dpath}/hlsp_iue-fluxcal_iue_lwp-lwr_cal_low-disp_v1_corr.txt", format="ascii"
+    )
     lcor.rename_column("col1", "wavelength")
     lcor.rename_column("col2", "LWP")
     lcor.rename_column("col3", "LWR")
 
-    scor = QTable.read(f"{dpath}/hlsp_iue-fluxcal_iue_swp_cal_low-disp_v1_corr.txt",
-                       format="ascii")
+    scor = QTable.read(
+        f"{dpath}/hlsp_iue-fluxcal_iue_swp_cal_low-disp_v1_corr.txt", format="ascii"
+    )
     scor.rename_column("col1", "wavelength")
     scor.rename_column("col2", "SWP")
 
@@ -51,7 +53,7 @@ if __name__ == "__main__":
     sfiles = glob.glob(sfilename)
     for cfile in sfiles:
         print(cfile)
-        warnings.filterwarnings('ignore', category=u.UnitsWarning, append=True)
+        warnings.filterwarnings("ignore", category=u.UnitsWarning, append=True)
         tt1 = QTable.read(cfile, format="fits")
         tt1_header = fits.getheader(cfile)
         camera = tt1_header["CAMERA"]
