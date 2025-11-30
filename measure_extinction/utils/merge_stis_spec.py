@@ -52,7 +52,6 @@ if __name__ == "__main__":
     )
     parser.add_argument("--outname", help="Output filebase")
     parser.add_argument("--png", help="save figure as a png file", action="store_true")
-    parser.add_argument("--eps", help="save figure as an eps file", action="store_true")
     parser.add_argument("--pdf", help="save figure as a pdf file", action="store_true")
     args = parser.parse_args()
 
