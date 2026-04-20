@@ -37,88 +37,82 @@ if __name__ == "__main__":
     sfiles = glob.glob(sfilename)
     cdatas = QTable.read(sfiles[0])
     for row in cdatas:
-        stable = []
+        for xp in ['bp', 'rp']:
+            stable = []
 
-        cdata_bp = QTable()
-        cdata_bp["WAVELENGTH"] = row["wl_bp"] * 0.001 * u.micron
-        cdata_bp["FLUX"] = row["flux_bp"] * 100 * fluxunit
-        cdata_bp["ERROR"] = row["flux_err_bp"] * 100 * fluxunit
-        cdata_bp["NPTS"] = np.full((len(cdata_bp["FLUX"])), 1.0)
-        cdata_bp["NPTS"][cdata_bp["FLUX"] == 0.0] = 0.0
-        stable.append(cdata_bp)
+            cdata_xp = QTable()
+            cdata_xp["WAVELENGTH"] = row[f"wl_{xp}"] * 0.001 * u.micron
+            cdata_xp["FLUX"] = row[f"flux_{xp}"] * 100 * fluxunit
+            cdata_xp["ERROR"] = row[f"flux_err_{xp}"] * 100 * fluxunit
+            cdata_xp["NPTS"] = np.full((len(cdata_xp["FLUX"])), 1.0)
+            cdata_xp["NPTS"][cdata_xp["FLUX"] == 0.0] = 0.0
+            stable.append(cdata_xp)
 
-        cdata_rp = QTable()
-        cdata_rp["WAVELENGTH"] = row["wl_rp"] * 0.001 * u.micron
-        cdata_rp["FLUX"] = row["flux_rp"] * 100 * fluxunit
-        cdata_rp["ERROR"] = row["flux_err_rp"] * 100 * fluxunit
-        cdata_rp["NPTS"] = np.full((len(cdata_rp["FLUX"])), 1.0)
-        cdata_rp["NPTS"][cdata_rp["FLUX"] == 0.0] = 0.0
-        stable.append(cdata_rp)
+            cres, crange = obsspecinfo[f"gaia_{xp}"]
+            rb_xp = merge_gen_obsspec(stable, crange, cres)
+            if args.outname:
+                outname = args.outname
+            else:
+                outname = row['ALS'].lower().replace('ls ', 'ls').replace(' ', '-')
+                outname = outname.replace('gl', 'al')
+            xp_file = f"{outname}_gaia_{xp}.fits"
+            rb_xp.write(f"{args.outpath}/{xp_file}", overwrite=True)
 
-        cres, crange_bp = obsspecinfo["gaia_bp"]
-        cres, crange_rp = obsspecinfo["gaia_rp"]
-        crange = [crange_bp[0].value, crange_rp[1].value] * u.micron
-        rb_xp = merge_gen_obsspec(stable, crange, cres)
-        if args.outname:
-            outname = args.outname
-        else:
-            outname = row['ALS'].lower().replace('ls ', 'ls').replace(' ', '-').replace('gl', 'al')
-        xp_file = f"{outname}_gaia_xp.fits"
-        rb_xp.write(f"{args.outpath}/{xp_file}", overwrite=True)
+            # plot the original and merged Spectra
+            fontsize = 14
+            font = {"size": fontsize}
+            plt.rc("font", **font)
+            plt.rc("lines", linewidth=2)
+            plt.rc("axes", linewidth=2)
+            plt.rc("xtick.major", width=2)
+            plt.rc("ytick.major", width=2)
 
-        # plot the original and merged Spectra
-        fontsize = 14
-        font = {"size": fontsize}
-        plt.rc("font", **font)
-        plt.rc("lines", linewidth=2)
-        plt.rc("axes", linewidth=2)
-        plt.rc("xtick.major", width=2)
-        plt.rc("ytick.major", width=2)
+            fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(10, 5.5))
 
-        fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(10, 5.5))
-
-        for ctable in stable:
-            gvals = ctable["NPTS"] > 0
+            for ctable in stable:
+                gvals = ctable["NPTS"] > 0
+                cfluxes = (
+                    ctable["FLUX"]
+                    .to(fluxunit, equivalencies=u.spectral_density(ctable["WAVELENGTH"]))
+                    .value
+                )
+                ax.plot(
+                    ctable["WAVELENGTH"][gvals],
+                    cfluxes[gvals],
+                    "k-",
+                    alpha=0.5,
+                    label="orig",
+                )
+            gvals = rb_xp["NPTS"] > 0
             cfluxes = (
-                ctable["FLUX"]
+                rb_xp["FLUX"]
                 .to(fluxunit, equivalencies=u.spectral_density(ctable["WAVELENGTH"]))
                 .value
             )
+
             ax.plot(
-                ctable["WAVELENGTH"][gvals],
-                cfluxes[gvals],
-                "k-",
+                rb_xp["WAVELENGTH"][gvals].to(u.micron),
+                rb_xp["FLUX"][gvals],
+                "b-",
                 alpha=0.5,
-                label="orig",
+                label="merged",
             )
-        gvals = rb_xp["NPTS"] > 0
-        cfluxes = (
-            rb_xp["FLUX"]
-            .to(fluxunit, equivalencies=u.spectral_density(ctable["WAVELENGTH"]))
-            .value
-        )
 
-        ax.plot(
-            rb_xp["WAVELENGTH"][gvals].to(u.micron),
-            rb_xp["FLUX"][gvals],
-            "b-",
-            alpha=0.5,
-            label="merged",
-        )
+            ax.set_xlabel(r"$\lambda$ [$\AA$]")
+            ax.set_ylabel(r"F($\lambda$)")
 
-        ax.set_xlabel(r"$\lambda$ [$\AA$]")
-        ax.set_ylabel(r"F($\lambda$)")
+            ax.set_xscale("log")
+            ax.set_yscale("log")
 
-        ax.set_xscale("log")
-        ax.set_yscale("log")
+            ax.legend()
+            fig.tight_layout()
 
-        ax.legend()
-        fig.tight_layout()
+            fname = xp_file.replace(".fits", "")
+            if args.png:
+                fig.savefig(f"{fname}.png")
+            elif args.eps:
+                fig.savefig(f"{fname}.eps")
+            else:
+                fig.savefig(f"{fname}.pdf")
 
-        fname = xp_file.replace(".fits", "")
-        if args.png:
-            fig.savefig(f"{fname}.png")
-        else:
-            fig.savefig(f"{fname}.pdf")
-
-        plt.close()
+            plt.close()

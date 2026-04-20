@@ -49,6 +49,8 @@ spec_rinfo = {
     "IRS": read_irs,
     "MIRI_LRS": read_gen_spectra,
     "MIRI_IFU": read_gen_spectra,
+    "GAIA_BP": read_gen_spectra,
+    "GAIA_RP": read_gen_spectra,
     "MODEL_FULL_LOWRES": read_gen_spectra,
     "MODEL_FULL": read_gen_spectra,
 }
