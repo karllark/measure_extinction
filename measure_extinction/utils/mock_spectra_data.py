@@ -9,6 +9,53 @@ from measure_extinction.utils.helpers import get_datapath
 __all__ = ["mock_stis_data"]
 
 
+def convolve_irregular_spectrum(wavelength, flux, fwhm_func):
+    """
+    Convolves an irregularly-spaced spectrum with a wavelength-dependent FWHM.
+    From Google/Gemini.
+    
+    Parameters:
+    wavelength (ndarray): 1D array of non-uniformly spaced wavelength values.
+
+    flux (ndarray): 1D array of spectral flux values.
+
+    fwhm_func (callable): Function f(wavelength) that returns the FWHM.
+    
+    Returns:
+    ndarray: Convolved flux array.
+    """
+    n = len(wavelength)
+    convolved_flux = np.zeros_like(flux)
+    
+    # Constant conversion factor from FWHM to Gaussian sigma
+    fwhm_to_sigma = 2.0 * np.sqrt(2.0 * np.log(2.0))
+    
+    for i in range(n):
+        # 1. Get current wavelength, local FWHM, and local sigma
+        w_center = wavelength[i]
+        sigma = fwhm_func(w_center) / fwhm_to_sigma
+        
+        # 2. Dynamic window: limit computation to pixels within 4 sigma
+        # This keeps the loop efficient instead of computing all NxN distances
+        idx_in_window = np.where(np.abs(wavelength - w_center) <= 4.0 * sigma)[0]
+        
+        if len(idx_in_window) <= 1:
+            convolved_flux[i] = flux[i]
+            continue
+            
+        # 3. Calculate true physical distances from the center pixel
+        dw = wavelength[idx_in_window] - w_center
+        
+        # 4. Evaluate Gaussian weights using the local sigma
+        weights = np.exp(-0.5 * (dw / sigma) ** 2)
+        
+        # 5. Normalize weights and perform the dot product
+        weights /= np.sum(weights)
+        convolved_flux[i] = np.dot(flux[idx_in_window], weights)
+        
+    return convolved_flux
+
+
 def mock_stis_single_grating(moddata, gname="G140L", applylsfs=True):
     """
     Mock up a single grating STIS low resolution observation using tabulated
@@ -20,7 +67,7 @@ def mock_stis_single_grating(moddata, gname="G140L", applylsfs=True):
         Model spectrum at high enough resolution to support "convolution" with
         the LSFs
 
-    ganme : str
+    gname : str
         name of the grating to mocked
 
     applylsfs : boolean
@@ -159,19 +206,107 @@ def mock_stis_data(moddata, applylsfs=True):
     return allspec
 
 
+def mock_nirspec_single_grating(moddata, gname="G140M/F100LP", applylsfs=True):
+    """
+    Mock up a single grating nirspec observation using wavelength dependent
+    Gaussian LSF.
+
+    Parameters
+    ----------
+    moddata : astropy.table
+        Model spectrum at high enough resolution to support "convolution" with
+        the LSFs
+
+    gname : str
+        name of the grating/filter to mocked
+
+    applylsfs : boolean
+        allows for mocking with and without the LSFs
+
+    Returns
+    -------
+    cmoddata : astropy.table
+        Convolved and cropped model spectrum for the grating requested
+    """
+    data_path = f"{get_datapath()}/../utils/NIRSpec_examples/"
+
+    if gname == "G140M/F100LP":
+        itab = QTable.read(f"{data_path}/g191b2b_m_NRS1_F100LP_G140M_pfpc_x1d.fits")
+        waves = (itab["WAVELENGTH"]).to(u.Angstrom)
+    else:
+        raise ValueError(f"Grating {gname} not supported")
+
+    # FWHM depends on wavelength (e.g., constant resolution R = lambda / delta_lambda = 1000)
+    resolution_fwhm = lambda w: w / 1000.0
+
+    if applylsfs:
+        new_flux = convolve_irregular_spectrum(waves, moddata["FLUX"], resolution_fwhm)
+    else:
+        new_flux = np.interp(waves, moddata["WAVELENGTH"], moddata["FLUX"])
+    print(new_flux)
+
+    print(applylsfs)
+    cmoddata = QTable()
+    cmoddata["WAVELENGTH"] = waves
+    cmoddata["FLUX"] = new_flux
+    #cmoddata["STAT-ERROR"] = outcwmoddata["SIGMA"][gvals]
+    #cmoddata["SYS-ERROR"] = outcwmoddata["SIGMA"][gvals]
+    #cmoddata["NPTS"] = outcwmoddata["NPTS"][gvals]
+
+    return cmoddata
+
+def mock_nirspec_data(moddata, applylsfs=True):
+    """
+    Mock NIRSPEC low-resolution grating observations given a model spectrum
+
+    Parameters
+    ----------
+    moddata : astropy.table
+        Model spectrum at high enough resolution to support "convolution" with
+        the LSFs
+
+    applylsfs : boolean
+        allows for mocking with and without the LSFs
+        
+    Returns
+    -------
+    tablist : list of astropy.tables
+        Each entry appropriate for one of the four low resolution gratings
+    """
+    allspec = []
+
+    allspec.append(
+        mock_nirspec_single_grating(moddata, gname="G140M/F100LP", applylsfs=applylsfs)
+    )
+
+    return allspec
+
+
 if __name__ == "__main__":
 
     # commandline parser
     parser = argparse.ArgumentParser()
+    parser.add_argument("--nirspec", help="mock NIRSpec instead of STIS", action="store_true")
     parser.add_argument("--png", help="save figure as a png file", action="store_true")
     parser.add_argument("--pdf", help="save figure as a pdf file", action="store_true")
     args = parser.parse_args()
 
     moddata = QTable.read(
-        "/home/kgordon/Python_git/extstar_data/Models/tlusty_BT30000g300v10_full.fits"
+        "/home/kgordon/Python/extstar_data/Models/tlusty_z001t15000g175v10_full.fits"
     )
 
-    fig, ax = plt.subplots(nrows=4, figsize=(18, 10))
+    if args.nirspec:
+        outname = "nirspec"
+        nspec = 2
+        mockobs_wolsfs = mock_nirspec_data(moddata, applylsfs=False)
+        mockobs = mock_nirspec_data(moddata)
+    else:
+        outname = "stis"
+        nspec = 4
+        mockobs_wolsfs = mock_stis_data(moddata, applylsfs=False)
+        mockobs = mock_stis_data(moddata)
+
+    fig, ax = plt.subplots(nrows=nspec, figsize=(18, 10))
 
     # setup the plots
     fontsize = 12
@@ -182,28 +317,18 @@ if __name__ == "__main__":
     plt.rc("xtick.major", width=2)
     plt.rc("ytick.major", width=2)
 
-    mockobs_wolsfs = mock_stis_data(moddata, applylsfs=False)
-    mockobs = mock_stis_data(moddata)
-
     for i, cmockobs in enumerate(mockobs):
         ax[i].plot(mockobs_wolsfs[i]["WAVELENGTH"], mockobs_wolsfs[i]["FLUX"], "k-")
-
-        # old way of doing things
-        # stis_fwhm_pix = 5000.0 / 1000.0
-        # g = Gaussian1DKernel(stddev=stis_fwhm_pix / 2.355)
-        # nflux = convolve(mockobs_wolsfs[i]["FLUX"].data, g)
-        # ax[i].plot(mockobs_wolsfs[i]["WAVELENGTH"], nflux, "r:")
-
         ax[i].plot(cmockobs["WAVELENGTH"], cmockobs["FLUX"], "b-")
         ax[i].set_ylabel("Flux")
 
-    ax[3].set_xlabel(r"$\lambda$ [$\AA$]")
+    ax[nspec-1].set_xlabel(r"$\lambda$ [$\AA$]")
 
     fig.tight_layout()
 
     if args.png:
-        fig.savefig("mock_stis_obs.png")
+        fig.savefig(f"mock_{outname}_obs.png")
     elif args.pdf:
-        fig.savefig("mock_stis_obs.pdf")
+        fig.savefig(f"mock_{outname}_obs.pdf")
     else:
         plt.show()
