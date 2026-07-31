@@ -9,50 +9,51 @@ from measure_extinction.utils.helpers import get_datapath
 __all__ = ["mock_stis_data"]
 
 
-def convolve_irregular_spectrum(wavelength, flux, fwhm_func):
+def convolve_irregular_spectrum(newwavelength, wavelength, flux, fwhm_func):
     """
     Convolves an irregularly-spaced spectrum with a wavelength-dependent FWHM.
-    From Google/Gemini.
-    
-    Parameters:
-    wavelength (ndarray): 1D array of non-uniformly spaced wavelength values.
+    From Google/Gemini, heavily modified afterwards.
 
-    flux (ndarray): 1D array of spectral flux values.
+    Parameters:
+    newwavelength (ndarray): 1D array for mocked spectra
+
+    wavelength (ndarray): 1D array of accompanying flux values
+
+    flux (ndarray): 1D array of flux values
 
     fwhm_func (callable): Function f(wavelength) that returns the FWHM.
-    
+
     Returns:
     ndarray: Convolved flux array.
     """
-    n = len(wavelength)
-    convolved_flux = np.zeros_like(flux)
-    
+    n = len(newwavelength)
+    convolved_flux = np.full((n), np.nan) * flux.unit
+
     # Constant conversion factor from FWHM to Gaussian sigma
     fwhm_to_sigma = 2.0 * np.sqrt(2.0 * np.log(2.0))
-    
+
     for i in range(n):
         # 1. Get current wavelength, local FWHM, and local sigma
-        w_center = wavelength[i]
+        w_center = newwavelength[i]
         sigma = fwhm_func(w_center) / fwhm_to_sigma
-        
+
         # 2. Dynamic window: limit computation to pixels within 4 sigma
         # This keeps the loop efficient instead of computing all NxN distances
         idx_in_window = np.where(np.abs(wavelength - w_center) <= 4.0 * sigma)[0]
-        
+
         if len(idx_in_window) <= 1:
-            convolved_flux[i] = flux[i]
-            continue
-            
-        # 3. Calculate true physical distances from the center pixel
-        dw = wavelength[idx_in_window] - w_center
-        
-        # 4. Evaluate Gaussian weights using the local sigma
-        weights = np.exp(-0.5 * (dw / sigma) ** 2)
-        
-        # 5. Normalize weights and perform the dot product
-        weights /= np.sum(weights)
-        convolved_flux[i] = np.dot(flux[idx_in_window], weights)
-        
+            convolved_flux[i] = np.nan
+        else:
+            # 3. Calculate true physical distances from the center pixel
+            dw = wavelength[idx_in_window] - w_center
+
+            # 4. Evaluate Gaussian weights using the local sigma
+            weights = np.exp(-0.5 * (dw / sigma) ** 2)
+
+            # 5. Normalize weights and perform the dot product
+            weights /= np.sum(weights)
+            convolved_flux[i] = np.dot(flux[idx_in_window], weights)
+
     return convolved_flux
 
 
@@ -240,7 +241,9 @@ def mock_nirspec_single_grating(moddata, gname="G140M/F100LP", applylsfs=True):
     resolution_fwhm = lambda w: w / 1000.0
 
     if applylsfs:
-        new_flux = convolve_irregular_spectrum(waves, moddata["FLUX"], resolution_fwhm)
+        new_flux = convolve_irregular_spectrum(
+            waves, moddata["WAVELENGTH"], moddata["FLUX"], resolution_fwhm
+        )
     else:
         new_flux = np.interp(waves, moddata["WAVELENGTH"], moddata["FLUX"])
     print(new_flux)
@@ -249,11 +252,12 @@ def mock_nirspec_single_grating(moddata, gname="G140M/F100LP", applylsfs=True):
     cmoddata = QTable()
     cmoddata["WAVELENGTH"] = waves
     cmoddata["FLUX"] = new_flux
-    #cmoddata["STAT-ERROR"] = outcwmoddata["SIGMA"][gvals]
-    #cmoddata["SYS-ERROR"] = outcwmoddata["SIGMA"][gvals]
-    #cmoddata["NPTS"] = outcwmoddata["NPTS"][gvals]
+    # cmoddata["STAT-ERROR"] = outcwmoddata["SIGMA"][gvals]
+    # cmoddata["SYS-ERROR"] = outcwmoddata["SIGMA"][gvals]
+    # cmoddata["NPTS"] = outcwmoddata["NPTS"][gvals]
 
     return cmoddata
+
 
 def mock_nirspec_data(moddata, applylsfs=True):
     """
@@ -267,7 +271,7 @@ def mock_nirspec_data(moddata, applylsfs=True):
 
     applylsfs : boolean
         allows for mocking with and without the LSFs
-        
+
     Returns
     -------
     tablist : list of astropy.tables
@@ -286,7 +290,9 @@ if __name__ == "__main__":
 
     # commandline parser
     parser = argparse.ArgumentParser()
-    parser.add_argument("--nirspec", help="mock NIRSpec instead of STIS", action="store_true")
+    parser.add_argument(
+        "--nirspec", help="mock NIRSpec instead of STIS", action="store_true"
+    )
     parser.add_argument("--png", help="save figure as a png file", action="store_true")
     parser.add_argument("--pdf", help="save figure as a pdf file", action="store_true")
     args = parser.parse_args()
@@ -322,7 +328,7 @@ if __name__ == "__main__":
         ax[i].plot(cmockobs["WAVELENGTH"], cmockobs["FLUX"], "b-")
         ax[i].set_ylabel("Flux")
 
-    ax[nspec-1].set_xlabel(r"$\lambda$ [$\AA$]")
+    ax[nspec - 1].set_xlabel(r"$\lambda$ [$\AA$]")
 
     fig.tight_layout()
 
