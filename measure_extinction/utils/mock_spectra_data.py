@@ -1,4 +1,5 @@
 import argparse
+import warnings
 import numpy as np
 import matplotlib.pyplot as plt
 from astropy.table import QTable
@@ -9,7 +10,7 @@ from measure_extinction.utils.helpers import get_datapath
 __all__ = ["mock_stis_data"]
 
 
-def convolve_irregular_spectrum(newwavelength, wavelength, flux, fwhm_func):
+def convolve_irregular_spectrum(newwavelength, wavelength, flux, fwhm):
     """
     Convolves an irregularly-spaced spectrum with a wavelength-dependent FWHM.
     From Google/Gemini, heavily modified afterwards.
@@ -21,7 +22,7 @@ def convolve_irregular_spectrum(newwavelength, wavelength, flux, fwhm_func):
 
     flux (ndarray): 1D array of flux values
 
-    fwhm_func (callable): Function f(wavelength) that returns the FWHM.
+    fwhm (ndarray): 1D array with FWHM as a function of newwavelength
 
     Returns:
     ndarray: Convolved flux array.
@@ -35,7 +36,7 @@ def convolve_irregular_spectrum(newwavelength, wavelength, flux, fwhm_func):
     for i in range(n):
         # 1. Get current wavelength, local FWHM, and local sigma
         w_center = newwavelength[i]
-        sigma = fwhm_func(w_center) / fwhm_to_sigma
+        sigma = fwhm[i] / fwhm_to_sigma
 
         # 2. Dynamic window: limit computation to pixels within 4 sigma
         # This keeps the loop efficient instead of computing all NxN distances
@@ -231,26 +232,39 @@ def mock_nirspec_single_grating(moddata, gname="G140M/F100LP", applylsfs=True):
     """
     data_path = f"{get_datapath()}/../utils/NIRSpec_examples/"
 
-    if gname == "G140M/F100LP":
-        itab = QTable.read(f"{data_path}/g191b2b_m_NRS1_F100LP_G140M_pfpc_x1d.fits")
-        waves = (itab["WAVELENGTH"]).to(u.Angstrom)
+    # get the wavelength grid and the resolving power versus wavelength
+    if gname == "G140M/F070LP":
+        exfile = "g191b2b_m_G140M_F070LP_NRS1_pfpc_x1d.fits"
+        resfile = "jwst_nirspec_g140m_disp.fits"
+    elif gname == "G140M/F100LP":
+        exfile = "g191b2b_m_G140M_F100LP_NRS1_pfpc_x1d.fits"
+        resfile = "jwst_nirspec_g140m_disp.fits"
+    elif gname == "G235M/F170LP":
+        exfile = "g191b2b_m_G235M_F170LP_NRS1_pfpc_x1d.fits"
+        resfile = "jwst_nirspec_g235m_disp.fits"
+    elif gname == "G395M/F290LP":
+        exfile = "g191b2b_m_G395M_F290LP_NRS1_pfpc_x1d.fits"
+        resfile = "jwst_nirspec_g395m_disp.fits"
     else:
         raise ValueError(f"Grating {gname} not supported")
 
-    # FWHM depends on wavelength (e.g., constant resolution R = lambda / delta_lambda = 1000)
-    resolution_fwhm = lambda w: w / 1000.0
+    itab = QTable.read(f"{data_path}/{exfile}")
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", category=u.UnitsWarning)
+        rtab = QTable.read(f"{data_path}/{resfile}")
+
+    waves = (itab["WAVELENGTH"]).to(u.Angstrom)
+    fwhm = waves / np.interp(waves, (rtab["WAVELENGTH"].value) * u.micron, rtab["R"].value)
 
     if applylsfs:
         new_flux = convolve_irregular_spectrum(
-            waves, moddata["WAVELENGTH"], moddata["FLUX"], resolution_fwhm
+            waves, moddata["WAVELENGTH"], moddata["FLUX"], fwhm
         )
     else:
         new_flux = np.interp(waves, moddata["WAVELENGTH"], moddata["FLUX"])
-    print(new_flux)
 
-    print(applylsfs)
     cmoddata = QTable()
-    cmoddata["WAVELENGTH"] = waves
+    cmoddata["WAVELENGTH"] = waves.to(u.micron)
     cmoddata["FLUX"] = new_flux
     # cmoddata["STAT-ERROR"] = outcwmoddata["SIGMA"][gvals]
     # cmoddata["SYS-ERROR"] = outcwmoddata["SIGMA"][gvals]
@@ -280,7 +294,19 @@ def mock_nirspec_data(moddata, applylsfs=True):
     allspec = []
 
     allspec.append(
+        mock_nirspec_single_grating(moddata, gname="G140M/F070LP", applylsfs=applylsfs)
+    )
+
+    allspec.append(
         mock_nirspec_single_grating(moddata, gname="G140M/F100LP", applylsfs=applylsfs)
+    )
+
+    allspec.append(
+        mock_nirspec_single_grating(moddata, gname="G235M/F170LP", applylsfs=applylsfs)
+    )
+
+    allspec.append(
+        mock_nirspec_single_grating(moddata, gname="G395M/F290LP", applylsfs=applylsfs)
     )
 
     return allspec
@@ -291,7 +317,7 @@ if __name__ == "__main__":
     # commandline parser
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "--nirspec", help="mock NIRSpec instead of STIS", action="store_true"
+        "--nirspec_m", help="mock NIRSpec medium gratings instead of STIS", action="store_true"
     )
     parser.add_argument("--png", help="save figure as a png file", action="store_true")
     parser.add_argument("--pdf", help="save figure as a pdf file", action="store_true")
@@ -301,9 +327,9 @@ if __name__ == "__main__":
         "/home/kgordon/Python/extstar_data/Models/tlusty_z001t15000g175v10_full.fits"
     )
 
-    if args.nirspec:
-        outname = "nirspec"
-        nspec = 2
+    if args.nirspec_m:
+        outname = "nirspec_m"
+        nspec = 4
         mockobs_wolsfs = mock_nirspec_data(moddata, applylsfs=False)
         mockobs = mock_nirspec_data(moddata)
     else:
@@ -328,7 +354,8 @@ if __name__ == "__main__":
         ax[i].plot(cmockobs["WAVELENGTH"], cmockobs["FLUX"], "b-")
         ax[i].set_ylabel("Flux")
 
-    ax[nspec - 1].set_xlabel(r"$\lambda$ [$\AA$]")
+    waveunit = cmockobs["WAVELENGTH"].unit
+    ax[nspec - 1].set_xlabel(rf"$\lambda$ [{waveunit}]")
 
     fig.tight_layout()
 
