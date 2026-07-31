@@ -233,7 +233,12 @@ def mock_nirspec_single_grating(moddata, gname="G140M/F100LP", applylsfs=True):
     data_path = f"{get_datapath()}/../utils/NIRSpec_examples/"
 
     # get the wavelength grid and the resolving power versus wavelength
-    if gname == "G140M/F070LP":
+    if gname == "PRISM":
+        print("support not here yet")
+        exit()
+        exfile = "g191b2b_m_G140M_F070LP_NRS1_pfpc_x1d.fits"
+        resfile = "jwst_nirspec_prism_disp.fits"
+    elif gname == "G140M/F070LP":
         exfile = "g191b2b_m_G140M_F070LP_NRS1_pfpc_x1d.fits"
         resfile = "jwst_nirspec_g140m_disp.fits"
     elif gname == "G140M/F100LP":
@@ -245,6 +250,27 @@ def mock_nirspec_single_grating(moddata, gname="G140M/F100LP", applylsfs=True):
     elif gname == "G395M/F290LP":
         exfile = "g191b2b_m_G395M_F290LP_NRS1_pfpc_x1d.fits"
         resfile = "jwst_nirspec_g395m_disp.fits"
+    elif gname == "G140H/F070LP/NRS1":
+        exfile = "g191b2b_h_G140H_F070LP_NRS1_pfpc_x1d.fits"
+        resfile = "jwst_nirspec_g140h_disp.fits"
+    elif gname == "G140H/F100LP/NRS1":
+        exfile = "g191b2b_h_G140H_F100LP_NRS1_pfpc_x1d.fits"
+        resfile = "jwst_nirspec_g140h_disp.fits"
+    elif gname == "G140H/F100LP/NRS2":
+        exfile = "g191b2b_h_G140H_F100LP_NRS2_pfpc_x1d.fits"
+        resfile = "jwst_nirspec_g140h_disp.fits"
+    elif gname == "G235H/F170LP/NRS1":
+        exfile = "g191b2b_h_G235H_F170LP_NRS1_pfpc_x1d.fits"
+        resfile = "jwst_nirspec_g235h_disp.fits"
+    elif gname == "G235H/F170LP/NRS2":
+        exfile = "g191b2b_h_G235H_F170LP_NRS2_pfpc_x1d.fits"
+        resfile = "jwst_nirspec_g235h_disp.fits"
+    elif gname == "G395H/F290LP/NRS1":
+        exfile = "g191b2b_h_G395H_F290LP_NRS1_pfpc_x1d.fits"
+        resfile = "jwst_nirspec_g395h_disp.fits"
+    elif gname == "G395H/F290LP/NRS2":
+        exfile = "g191b2b_h_G395H_F290LP_NRS2_pfpc_x1d.fits"
+        resfile = "jwst_nirspec_g395h_disp.fits"
     else:
         raise ValueError(f"Grating {gname} not supported")
 
@@ -254,7 +280,9 @@ def mock_nirspec_single_grating(moddata, gname="G140M/F100LP", applylsfs=True):
         rtab = QTable.read(f"{data_path}/{resfile}")
 
     waves = (itab["WAVELENGTH"]).to(u.Angstrom)
-    fwhm = waves / np.interp(waves, (rtab["WAVELENGTH"].value) * u.micron, rtab["R"].value)
+    fwhm = waves / np.interp(
+        waves, (rtab["WAVELENGTH"].value) * u.micron, rtab["R"].value
+    )
 
     if applylsfs:
         new_flux = convolve_irregular_spectrum(
@@ -273,7 +301,7 @@ def mock_nirspec_single_grating(moddata, gname="G140M/F100LP", applylsfs=True):
     return cmoddata
 
 
-def mock_nirspec_data(moddata, applylsfs=True):
+def mock_nirspec_data(moddata, grattype="M", applylsfs=True):
     """
     Mock NIRSPEC low-resolution grating observations given a model spectrum
 
@@ -283,6 +311,10 @@ def mock_nirspec_data(moddata, applylsfs=True):
         Model spectrum at high enough resolution to support "convolution" with
         the LSFs
 
+    grattype : character
+        The grating type, possible values are P, M, H for prims, medium, and high
+        gratings
+
     applylsfs : boolean
         allows for mocking with and without the LSFs
 
@@ -291,23 +323,28 @@ def mock_nirspec_data(moddata, applylsfs=True):
     tablist : list of astropy.tables
         Each entry appropriate for one of the four low resolution gratings
     """
+    if grattype not in ["P", "M", "H"]:
+        print(f"grating type {grattype} not supported")
+        exit()
+
     allspec = []
 
-    allspec.append(
-        mock_nirspec_single_grating(moddata, gname="G140M/F070LP", applylsfs=applylsfs)
-    )
+    if grattype == "P":
+        gratings = ["PRISM"]
+    elif grattype == "M":
+        gratings = ["G140M/F070LP", "G140M/F100LP", "G235M/F170LP", "G395M/F290LP"]
+    else:
+        # fmt: off
+        gratings = ["G140H/F070LP/NRS1", 
+                    "G140H/F100LP/NRS1", "G140H/F100LP/NRS2",
+                    "G235H/F170LP/NRS1", "G235H/F170LP/NRS2",
+                    "G395H/F290LP/NRS1", "G395H/F290LP/NRS2"]
+        # fmt: on
 
-    allspec.append(
-        mock_nirspec_single_grating(moddata, gname="G140M/F100LP", applylsfs=applylsfs)
-    )
-
-    allspec.append(
-        mock_nirspec_single_grating(moddata, gname="G235M/F170LP", applylsfs=applylsfs)
-    )
-
-    allspec.append(
-        mock_nirspec_single_grating(moddata, gname="G395M/F290LP", applylsfs=applylsfs)
-    )
+    for cgrat in gratings:
+        allspec.append(
+            mock_nirspec_single_grating(moddata, gname=cgrat, applylsfs=applylsfs)
+        )
 
     return allspec
 
@@ -317,7 +354,19 @@ if __name__ == "__main__":
     # commandline parser
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "--nirspec_m", help="mock NIRSpec medium gratings instead of STIS", action="store_true"
+        "--nirspec_p",
+        help="mock NIRSpec prism instead of STIS",
+        action="store_true",
+    )
+    parser.add_argument(
+        "--nirspec_m",
+        help="mock NIRSpec medium gratings instead of STIS",
+        action="store_true",
+    )
+    parser.add_argument(
+        "--nirspec_h",
+        help="mock NIRSpec medium gratings instead of STIS",
+        action="store_true",
     )
     parser.add_argument("--png", help="save figure as a png file", action="store_true")
     parser.add_argument("--pdf", help="save figure as a pdf file", action="store_true")
@@ -327,11 +376,21 @@ if __name__ == "__main__":
         "/home/kgordon/Python/extstar_data/Models/tlusty_z001t15000g175v10_full.fits"
     )
 
-    if args.nirspec_m:
+    if args.nirspec_p:
+        outname = "nirspec_p"
+        nspec = 1
+        mockobs_wolsfs = mock_nirspec_data(moddata, grattype="P", applylsfs=False)
+        mockobs = mock_nirspec_data(moddata, grattype="P")
+    elif args.nirspec_m:
         outname = "nirspec_m"
         nspec = 4
-        mockobs_wolsfs = mock_nirspec_data(moddata, applylsfs=False)
-        mockobs = mock_nirspec_data(moddata)
+        mockobs_wolsfs = mock_nirspec_data(moddata, grattype="M", applylsfs=False)
+        mockobs = mock_nirspec_data(moddata, grattype="M")
+    elif args.nirspec_h:
+        outname = "nirspec_h"
+        nspec = 7
+        mockobs_wolsfs = mock_nirspec_data(moddata, grattype="H", applylsfs=False)
+        mockobs = mock_nirspec_data(moddata, grattype="H")
     else:
         outname = "stis"
         nspec = 4
