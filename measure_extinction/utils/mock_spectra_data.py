@@ -234,9 +234,7 @@ def mock_nirspec_single_grating(moddata, gname="G140M/F100LP", applylsfs=True):
 
     # get the wavelength grid and the resolving power versus wavelength
     if gname == "PRISM":
-        print("support not here yet")
-        exit()
-        exfile = "g191b2b_m_G140M_F070LP_NRS1_pfpc_x1d.fits"
+        exfile = "jw07565018001_03102_00001_nrs1_x1d.fits"
         resfile = "jwst_nirspec_prism_disp.fits"
     elif gname == "G140M/F070LP":
         exfile = "g191b2b_m_G140M_F070LP_NRS1_pfpc_x1d.fits"
@@ -398,6 +396,7 @@ if __name__ == "__main__":
         mockobs = mock_stis_data(moddata)
 
     fig, ax = plt.subplots(nrows=nspec, figsize=(18, 10))
+    ax = np.atleast_1d(ax)
 
     # setup the plots
     fontsize = 12
