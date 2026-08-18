@@ -63,7 +63,7 @@ distribute-*.tar.gz
 *.ipynb
 *.png
 *.p
-*.fits
+#*.fits
 *.log
 *.pdf
 *.gz
