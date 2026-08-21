@@ -152,7 +152,9 @@ def main():
         full_file_lowres = f"{args.starname}_bestfit_model_full_lowres.fits"
         otable_lowres = QTable()
         otable_lowres["WAVELENGTH"] = Column(modinfo.waves[cspec], unit=u.angstrom)
-        otable_lowres["FLUX"] = Column(hi_ext_modsed[cspec] *  memod.norm.value, unit=fluxunit)
+        otable_lowres["FLUX"] = Column(
+            hi_ext_modsed[cspec] * memod.norm.value, unit=fluxunit
+        )
         otable_lowres.write(full_file_lowres, overwrite=True)
         specinfo["MODEL_FULL_LOWRES"] = full_file_lowres
 
