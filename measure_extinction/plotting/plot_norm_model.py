@@ -4,6 +4,8 @@ import emcee
 import matplotlib.pyplot as plt
 from matplotlib.ticker import ScalarFormatter
 import numpy as np
+from astropy.table import QTable, Column
+import astropy.units as u
 
 from measure_extinction.model import MEModel
 from measure_extinction.stardata import StarData
@@ -25,6 +27,7 @@ def main():
     parser.add_argument(
         "--bands", help="only use these observed bands", nargs="+", default=None
     )
+    parser.add_argument("--save_model", help="save model", action="store_true")
     parser.add_argument("--png", help="save figure as a png file", action="store_true")
     parser.add_argument("--pdf", help="save figure as a pdf file", action="store_true")
     args = parser.parse_args()
@@ -136,11 +139,24 @@ def main():
         nrows=3, figsize=(8, 8), gridspec_kw={"height_ratios": [2, 2, 1]}
     )
 
-    # normalized the data by the continuum model
+    # full model
     modsed = memod.stellar_sed(modinfo)
     ext_modsed = memod.dust_extinguished_sed(modinfo, modsed)
     hi_ext_modsed = memod.hi_abs_sed(modinfo, ext_modsed)
 
+    # if requested, save the full model
+    if args.save_model:
+        fluxunit = u.erg / (u.s * u.cm * u.cm * u.angstrom)
+        specinfo = {}
+        cspec = "MODEL_FULL_LOWRES"
+        full_file_lowres = f"{args.starname}_bestfit_model_full_lowres.fits"
+        otable_lowres = QTable()
+        otable_lowres["WAVELENGTH"] = Column(modinfo.waves[cspec], unit=u.angstrom)
+        otable_lowres["FLUX"] = Column(hi_ext_modsed[cspec], unit=fluxunit)
+        otable_lowres.write(full_file_lowres, overwrite=True)
+        specinfo["MODEL_FULL_LOWRES"] = full_file_lowres
+
+    # continuum model for normalization
     modsed_cont = memod_cont.stellar_sed(modinfo_cont)
     ext_modsed_cont = memod_cont.dust_extinguished_sed(modinfo_cont, modsed_cont)
     hi_ext_modsed_cont = memod_cont.hi_abs_sed(modinfo_cont, ext_modsed_cont)
