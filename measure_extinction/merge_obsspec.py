@@ -19,9 +19,18 @@ obsspecinfo = {
     "gaia_rp": (70, [0.639, 1.021] * u.micron),
     "wfc3_g102": (210, [0.8, 1.15] * u.micron),
     "wfc3_g141": (130, [1.075, 1.70] * u.micron),
+    "irs": (150, [5.0, 40.0] * u.micron),
     "niriss_soss": (700, [0.85, 2.75] * u.micron),
     "nircam_ss": (1600, [2.35, 5.55] * u.micron),
-    "irs": (150, [5.0, 40.0] * u.micron),
+    "nirspec_prism": (100, [0.6, 5.3] * u.micron),
+    "nirspec_g140m_f070lp": (1000, [0.70, 1.27] * u.micron),
+    "nirspec_g140m_f100lp": (1000, [0.97, 1.89] * u.micron),
+    "nirspec_g235m_f170lp": (1000, [1.66, 3.17] * u.micron),
+    "nirspec_g395m_f290lp": (1000, [2.87, 5.27] * u.micron),
+    "nirspec_g140h_f070lp": (2700, [0.81, 1.27] * u.micron),
+    "nirspec_g140h_f100lp": (2700, [0.97, 1.89] * u.micron),
+    "nirspec_g235h_f170lp": (2700, [1.66, 3.17] * u.micron),
+    "nirspec_g395h_f290lp": (2700, [2.87, 5.27] * u.micron),
     "miri_lrs": (160, [5.0, 13.0] * u.micron),
     "miri_ifu": (3000, [4.8, 29.0] * u.micron),
 }
@@ -271,6 +280,8 @@ def merge_gen_obsspec(obstables, wave_range, output_resolution=100):
             .value
         )
         cnpts = ctable["NPTS"].value
+        cnpts[cuncs == 0] = 0
+
         for k in range(n_waves):
             (indxs,) = np.where(
                 (cwaves >= full_wave_min[k]) & (cwaves < full_wave_max[k]) & (cnpts > 0)

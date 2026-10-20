@@ -57,6 +57,9 @@ def read_bohlin(sfilename):
         ],
     )
 
+    bvals = (t1["FLUX"] == 0.0) | (t1["STAT-ERROR"] == 0.0)
+    t1["NPTS"][bvals] = 0.0
+
     t1["WAVELENGTH"] *= u.angstrom
     t1["FLUX"] *= u.erg / (u.s * u.cm * u.cm * u.angstrom)
     t1["ERROR"] = t1["STAT-ERROR"] * u.erg / (u.s * u.cm * u.cm * u.angstrom)
